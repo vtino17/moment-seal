@@ -13,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - run: corepack enable
       - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
-      - run: corepack enable
       - run: pnpm --version
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
