@@ -1,0 +1,28 @@
+{
+  "name": "moment-seal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Snapshot-to-commit consistency compiler for AI-agent plans.",
+  "type": "module",
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "build": "pnpm --filter @momentseal/core build && pnpm --filter @momentseal/cli build && pnpm --filter @momentseal/studio build",
+    "dev": "pnpm --filter @momentseal/studio dev",
+    "lint": "eslint .",
+    "typecheck": "tsc -b packages/core/tsconfig.build.json packages/cli/tsconfig.build.json && tsc -p apps/studio/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "premoment": "pnpm --filter @momentseal/core build && pnpm --filter @momentseal/cli build",
+    "moment": "node packages/cli/dist/index.js"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.1",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^3.2.7"
+  }
+}

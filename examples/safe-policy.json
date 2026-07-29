@@ -1,0 +1,11 @@
+{
+  "policyVersion": "1.0",
+  "planId": "finance-agent-plan",
+  "maximumObservationAgeMs": 300000,
+  "maximumCheckUseGapMs": 300000,
+  "maximumRevalidationAgeMs": 60000,
+  "minimumAuthority": 80,
+  "requireConditionalForMutations": true,
+  "requireRevalidationForIrreversible": true,
+  "maximumDependencyDepth": 3
+}

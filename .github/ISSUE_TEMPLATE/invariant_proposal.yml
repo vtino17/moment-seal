@@ -1,0 +1,26 @@
+name: Invariant proposal
+description: Propose a new temporal or concurrency invariant
+title: "[Invariant]: "
+labels: ["enhancement", "invariant"]
+body:
+  - type: textarea
+    id: failure
+    attributes:
+      label: Unsafe execution
+      description: Describe the race or invalidated assumption.
+    validations:
+      required: true
+  - type: textarea
+    id: signal
+    attributes:
+      label: Deterministic signal
+      description: Which plan fields prove the violation without judging business intent?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal example
+      render: json
+    validations:
+      required: true

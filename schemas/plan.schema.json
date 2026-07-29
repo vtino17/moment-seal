@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vtino17/moment-seal/schemas/plan.schema.json",
+  "title": "MomentSeal agent plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planVersion", "planId", "observations", "commitStates", "actions"],
+  "properties": {
+    "planVersion": { "const": "1.0" },
+    "planId": { "type": "string", "minLength": 1 },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "resourceId", "version", "observedAt", "expiresAt", "source", "authority", "scopeHash"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "resourceId": { "type": "string", "minLength": 1 },
+          "version": { "type": "string" },
+          "observedAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "source": { "type": "string", "minLength": 1 },
+          "authority": { "type": "number", "minimum": 0, "maximum": 100 },
+          "scopeHash": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "commitStates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resourceId", "currentVersion", "capturedAt", "exists"],
+        "properties": {
+          "resourceId": { "type": "string", "minLength": 1 },
+          "currentVersion": { "type": "string" },
+          "capturedAt": { "type": "string", "format": "date-time" },
+          "exists": { "type": "boolean" }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sequence", "kind", "resourceId", "commitAt", "consistency", "irreversible", "mutationHash", "dependsOnActionIds"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "sequence": { "type": "integer", "minimum": 0 },
+          "kind": { "enum": ["read", "create", "update", "delete", "external-effect"] },
+          "resourceId": { "type": "string", "minLength": 1 },
+          "observationId": { "type": "string", "minLength": 1 },
+          "expectedVersion": { "type": "string" },
+          "commitAt": { "type": "string", "format": "date-time" },
+          "consistency": { "enum": ["none", "if-match", "transaction", "lease"] },
+          "leaseScope": { "type": "string", "minLength": 1 },
+          "revalidatedAt": { "type": "string", "format": "date-time" },
+          "irreversible": { "type": "boolean" },
+          "mutationHash": { "type": "string", "minLength": 1 },
+          "dependsOnActionIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"extends":"../../tsconfig.base.json","compilerOptions":{"noEmit":true},"references":[{"path":"../core/tsconfig.build.json"}],"include":["src"]}

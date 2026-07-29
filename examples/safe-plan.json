@@ -1,0 +1,71 @@
+{
+  "planVersion": "1.0",
+  "planId": "finance-agent-plan",
+  "observations": [
+    {
+      "id": "invoice-v7",
+      "resourceId": "invoice/204",
+      "version": "v7",
+      "observedAt": "2026-07-29T03:00:00.000Z",
+      "expiresAt": "2026-07-29T03:10:00.000Z",
+      "source": "billing-api",
+      "authority": 95,
+      "scopeHash": "scope:invoice:204"
+    },
+    {
+      "id": "repo-v41",
+      "resourceId": "repo/acme/config",
+      "version": "41",
+      "observedAt": "2026-07-29T03:00:00.000Z",
+      "expiresAt": "2026-07-29T03:10:00.000Z",
+      "source": "git-provider",
+      "authority": 90,
+      "scopeHash": "scope:repo:acme:config"
+    }
+  ],
+  "commitStates": [
+    {
+      "resourceId": "invoice/204",
+      "currentVersion": "v7",
+      "capturedAt": "2026-07-29T03:02:00.000Z",
+      "exists": true
+    },
+    {
+      "resourceId": "repo/acme/config",
+      "currentVersion": "41",
+      "capturedAt": "2026-07-29T03:02:00.000Z",
+      "exists": true
+    }
+  ],
+  "actions": [
+    {
+      "id": "settle-invoice",
+      "sequence": 1,
+      "kind": "update",
+      "resourceId": "invoice/204",
+      "observationId": "invoice-v7",
+      "expectedVersion": "v7",
+      "commitAt": "2026-07-29T03:03:00.000Z",
+      "consistency": "if-match",
+      "revalidatedAt": "2026-07-29T03:02:30.000Z",
+      "irreversible": true,
+      "mutationHash": "sha256:settle-invoice",
+      "dependsOnActionIds": []
+    },
+    {
+      "id": "merge-config",
+      "sequence": 2,
+      "kind": "update",
+      "resourceId": "repo/acme/config",
+      "observationId": "repo-v41",
+      "expectedVersion": "41",
+      "commitAt": "2026-07-29T03:04:00.000Z",
+      "consistency": "transaction",
+      "irreversible": false,
+      "mutationHash": "sha256:merge-config",
+      "dependsOnActionIds": [
+        "settle-invoice"
+      ]
+    }
+  ]
+}

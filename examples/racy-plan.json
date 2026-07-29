@@ -1,0 +1,112 @@
+{
+  "planVersion": "1.0",
+  "planId": "racy-support-agent",
+  "observations": [
+    {
+      "id": "ticket-v7",
+      "resourceId": "ticket/204",
+      "version": "v7",
+      "observedAt": "2026-07-29T03:00:00.000Z",
+      "expiresAt": "2026-07-29T03:02:00.000Z",
+      "source": "support-cache",
+      "authority": 55,
+      "scopeHash": "scope:ticket:204"
+    },
+    {
+      "id": "account-v3",
+      "resourceId": "account/88",
+      "version": "v3",
+      "observedAt": "2026-07-29T03:01:00.000Z",
+      "expiresAt": "2026-07-29T03:05:00.000Z",
+      "source": "crm",
+      "authority": 92,
+      "scopeHash": "scope:account:88"
+    }
+  ],
+  "commitStates": [
+    {
+      "resourceId": "ticket/204",
+      "currentVersion": "v8",
+      "capturedAt": "2026-07-29T03:04:00.000Z",
+      "exists": true
+    },
+    {
+      "resourceId": "account/88",
+      "currentVersion": "v4",
+      "capturedAt": "2026-07-29T03:05:00.000Z",
+      "exists": true
+    }
+  ],
+  "actions": [
+    {
+      "id": "refund-ticket",
+      "sequence": 1,
+      "kind": "update",
+      "resourceId": "ticket/204",
+      "observationId": "ticket-v7",
+      "expectedVersion": "v7",
+      "commitAt": "2026-07-29T03:06:00.000Z",
+      "consistency": "none",
+      "irreversible": true,
+      "mutationHash": "sha256:refund-ticket",
+      "dependsOnActionIds": []
+    },
+    {
+      "id": "notify-customer",
+      "sequence": 2,
+      "kind": "external-effect",
+      "resourceId": "ticket/204",
+      "observationId": "ticket-v7",
+      "expectedVersion": "v7",
+      "commitAt": "2026-07-29T03:07:00.000Z",
+      "consistency": "none",
+      "irreversible": false,
+      "mutationHash": "sha256:notify-customer",
+      "dependsOnActionIds": [
+        "refund-ticket"
+      ]
+    },
+    {
+      "id": "delete-account",
+      "sequence": 3,
+      "kind": "delete",
+      "resourceId": "account/88",
+      "observationId": "account-v3",
+      "expectedVersion": "v3",
+      "commitAt": "2026-07-29T03:08:00.000Z",
+      "consistency": "lease",
+      "revalidatedAt": "2026-07-29T03:01:30.000Z",
+      "irreversible": true,
+      "mutationHash": "sha256:delete-account",
+      "dependsOnActionIds": [
+        "notify-customer"
+      ]
+    },
+    {
+      "id": "cycle-a",
+      "sequence": 4,
+      "kind": "read",
+      "resourceId": "knowledge/a",
+      "commitAt": "2026-07-29T03:08:00.000Z",
+      "consistency": "none",
+      "irreversible": false,
+      "mutationHash": "sha256:read-a",
+      "dependsOnActionIds": [
+        "cycle-b"
+      ]
+    },
+    {
+      "id": "cycle-b",
+      "sequence": 5,
+      "kind": "read",
+      "resourceId": "knowledge/b",
+      "commitAt": "2026-07-29T03:08:30.000Z",
+      "consistency": "none",
+      "irreversible": false,
+      "mutationHash": "sha256:read-b",
+      "dependsOnActionIds": [
+        "cycle-a"
+      ]
+    }
+  ]
+}

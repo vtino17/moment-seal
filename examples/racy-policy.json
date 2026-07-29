@@ -1,0 +1,11 @@
+{
+  "policyVersion": "1.0",
+  "planId": "racy-support-agent",
+  "maximumObservationAgeMs": 300000,
+  "maximumCheckUseGapMs": 180000,
+  "maximumRevalidationAgeMs": 60000,
+  "minimumAuthority": 80,
+  "requireConditionalForMutations": true,
+  "requireRevalidationForIrreversible": true,
+  "maximumDependencyDepth": 3
+}
