@@ -1,6 +1,6 @@
 # Production-readiness status
 
-Version 0.3 is a production candidate, not a certification. It includes deterministic compilation, bounded validation, typed errors, signed receipts, enforceable HTTP and PostgreSQL concurrency adapters, adversarial and property-based tests, coverage thresholds, a performance budget, dependency auditing, CodeQL, SBOM generation, and provenance attestations.
+Version 0.3 is certification-ready evidence, not a certification. It includes deterministic compilation, bounded validation, typed errors, KMS/HSM-capable signed receipts, lifecycle-aware trust stores, enforceable HTTP and PostgreSQL concurrency adapters, adversarial and property-based tests, coverage thresholds, a performance budget, dependency auditing, CodeQL, OpenSSF Scorecard, reproducible release archives, SBOM generation, and provenance attestations.
 
 ## Repository gates
 
@@ -9,6 +9,8 @@ Version 0.3 is a production candidate, not a certification. It includes determin
 - Pull requests require CI and CodeQL checks.
 - Dependencies and GitHub Actions are monitored by Dependabot.
 - Release workflows produce a CycloneDX SBOM, SHA-256 checksum, and Sigstore-backed GitHub attestation.
+- Release archives are byte-for-byte reproducible under a fixed source commit timestamp.
+- NIST SSDF evidence and independent-review scope are checked into the repository.
 
 ## Required before a real production launch
 
@@ -18,5 +20,9 @@ Version 0.3 is a production candidate, not a certification. It includes determin
 - Capacity testing with representative plan shapes and traffic.
 - Incident response, monitoring, data retention, privacy, and disaster-recovery procedures owned by the deploying organization.
 - A staged rollout beginning with reversible actions.
+
+## Certification decision
+
+The repository may describe a fixed release as “independently audited” only after the deliverables in [AUDIT-PACKAGE.md](AUDIT-PACKAGE.md) are complete and published. It may use “certified” only when a named external scheme and issuing organization grant that status for a defined scope and validity period. OpenSSF Best Practices is a separate project self-certification that the maintainer can apply for after verifying its live criteria.
 
 MomentSeal cannot establish that an observation source is truthful, that an authorization decision is correct, or that a backend actually enforces the requested precondition. Those remain trust boundaries of the host system.

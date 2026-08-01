@@ -5,6 +5,7 @@ export type MomentNodeErrorCode =
   | "HTTP_GUARD_INVALID"
   | "KEY_INVALID"
   | "RECEIPT_SIGNATURE_INVALID"
+  | "SIGNER_FAILED"
   | "SIGNED_ENVELOPE_INVALID";
 
 export class MomentNodeError extends Error {

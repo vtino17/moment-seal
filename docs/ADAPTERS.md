@@ -4,9 +4,9 @@ The `@momentseal/node` package turns sealed action guards into commit-time stora
 
 ## HTTP
 
-`guardedFetch` derives `If-Match` or `If-None-Match` from the sealed action, rejects caller-supplied conditional headers, rejects weak or malformed ETags, disables redirects, and converts HTTP `412` into a typed `CONCURRENCY_CONFLICT`.
+`guardedFetch` derives `If-Match` or `If-None-Match` from the sealed action, rejects caller-supplied conditional headers, rejects weak or malformed ETags, disables redirects, applies a bounded timeout, and converts HTTP `412` into a typed `CONCURRENCY_CONFLICT`.
 
-Only `POST`, `PUT`, `PATCH`, and `DELETE` are accepted. The target server must implement RFC 9110 preconditions atomically with the mutation. A successful response from a server that ignores preconditions is not safe.
+Only `POST`, `PUT`, `PATCH`, and `DELETE` are accepted. Callers must provide 1 to 100 canonical HTTP(S) `allowedOrigins`; URL credentials, non-HTTP schemes, and unlisted targets fail closed. The target server must implement RFC 9110 preconditions atomically with the mutation. A successful response from a server that ignores preconditions is not safe.
 
 ## PostgreSQL-style row versions
 

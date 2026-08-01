@@ -21,4 +21,6 @@ The CLI never accepts the passphrase as an argument because process arguments ar
 - Retain old public keys for the full receipt-verification period.
 - Back up and test recovery of required verification keys; do not export non-exportable production private keys merely for backup convenience.
 
-The bundled Node signer accepts PEM keys for portability. Integrations with cloud KMS or HSM services should implement signing outside the process while preserving the exact domain-separated canonical payload contract.
+The bundled Node signer accepts PEM keys for portability. Production integrations should implement the asynchronous `ReceiptSigner` interface with a cloud KMS, HSM, or isolated signer. The private key remains outside MomentSeal; the adapter receives the exact domain-separated canonical payload and must return a 64-byte Ed25519 signature. Both signing APIs independently recompile and verify the receipt against the supplied plan and policy before invoking any signer.
+
+Use `verifySignedReceiptWithTrustStore` for rotation. Each trusted public key can declare a key id, `validFrom`, `validUntil`, and `revokedAt`. The verifier requires exactly one matching key and evaluates lifecycle boundaries against `signedAt`. Removing a key invalidates all of its receipts; setting `revokedAt` invalidates signatures at or after that timestamp while preserving earlier receipts.

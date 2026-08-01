@@ -5,7 +5,11 @@
 ### Production hardening
 
 - Add domain-separated Ed25519 signed-receipt envelopes, encrypted PKCS#8 key generation, stable SPKI key identifiers, and trusted-key verification.
+- Reject non-canonical Base64URL signature encodings, including encodings with non-zero padding bits that decode to unchanged bytes.
+- Add asynchronous KMS/HSM signer support plus bounded trust-store rotation, validity, and revocation policy.
+- Require independent plan and policy verification inside every signing API before local or external key use.
 - Add a Node runtime package with fail-closed HTTP ETag and PostgreSQL row-version enforcement adapters.
+- Restrict guarded HTTP origins, schemes, credentials, and timeouts; require database versions to advance.
 - Add typed core and runtime errors plus CLI key generation, signing, and signed-receipt verification.
 - Fix CLI action explanation and timeline commit-state identity lookups.
 - Replace a quadratic prior-mutation scan with resource-indexed analysis.
@@ -16,6 +20,7 @@
 - Add a 5,000-action CI performance budget and signed-receipt end-to-end tamper tests.
 - Add production operations, adapter, key-management, and readiness documentation.
 - Add CycloneDX SBOM generation, release checksums, and GitHub/Sigstore provenance attestations.
+- Add byte-for-byte reproducible release archives, OpenSSF Scorecard automation, NIST SSDF evidence mapping, and an independent-audit package.
 
 ## 0.2.0 - 2026-08-01
 

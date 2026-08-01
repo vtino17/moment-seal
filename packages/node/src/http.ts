@@ -67,14 +67,31 @@ export async function guardedFetch(input: {
   action: PlannedAction;
   init: RequestInit;
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  allowedOrigins: readonly string[];
 }): Promise<Response> {
+  const target = new URL(input.url);
+  if (!["http:", "https:"].includes(target.protocol) || target.username || target.password) throw new MomentNodeError("HTTP_GUARD_INVALID", "Guarded HTTP target must use HTTP(S) without URL credentials.");
+  if (input.allowedOrigins.length < 1 || input.allowedOrigins.length > 100 || input.allowedOrigins.some((origin) => {
+    try {
+      const parsed = new URL(origin);
+      return !["http:", "https:"].includes(parsed.protocol) || parsed.origin !== origin || Boolean(parsed.username || parsed.password);
+    } catch {
+      return true;
+    }
+  })) throw new MomentNodeError("HTTP_GUARD_INVALID", "HTTP allowedOrigins must contain 1 to 100 canonical HTTP(S) origins.");
+  if (!input.allowedOrigins.includes(target.origin)) throw new MomentNodeError("HTTP_GUARD_INVALID", `Guarded HTTP target origin is not allowed: ${target.origin}`);
   const method = (input.init.method ?? "GET").toUpperCase();
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) throw new MomentNodeError("HTTP_GUARD_INVALID", `Guarded mutation cannot use HTTP ${method}.`);
+  const timeoutMs = input.timeoutMs ?? 30_000;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw new MomentNodeError("HTTP_GUARD_INVALID", "HTTP timeout must be an integer from 1 to 120000 milliseconds.");
   const guard = conditionalHeaders(input.action);
   const headers = new Headers(input.init.headers);
   for (const name of ["if-match", "if-none-match"]) if (headers.has(name)) throw new MomentNodeError("HTTP_GUARD_INVALID", `Caller cannot predefine ${name}; it is derived from the sealed action.`);
   guard.forEach((value, key) => headers.set(key, value));
-  const response = await (input.fetchImpl ?? globalThis.fetch)(input.url, { ...input.init, headers, redirect: "error" });
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = input.init.signal ? AbortSignal.any([input.init.signal, timeoutSignal]) : timeoutSignal;
+  const response = await (input.fetchImpl ?? globalThis.fetch)(target, { ...input.init, headers, redirect: "error", signal });
   if (response.status === 412) throw new MomentNodeError("CONCURRENCY_CONFLICT", "HTTP precondition failed; resource state changed before commit.");
   return response;
 }

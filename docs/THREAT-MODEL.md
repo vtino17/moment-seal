@@ -34,9 +34,11 @@ MomentSeal does not:
 - make multiple backends atomic;
 - prevent a malicious runtime from ignoring a rejection;
 - replace database isolation, leases, conditional requests, or compensation;
-- sign receipts or establish producer identity;
 - protect against denial of service, prompt injection, or unsafe payload content.
-- authenticate receipt producers; content hashing is not a signature.
+- guarantee that a trusted signing key was controlled by the intended human or service;
+- make a compromised key trustworthy, or replace KMS/HSM access control and audit logging.
+
+Signed receipts establish possession of a configured Ed25519 key at signing time. Trust-store policy binds key identity, validity, rotation, and revocation, but producer identity remains only as reliable as the operator's key provisioning and custody.
 
 ## Residual race
 

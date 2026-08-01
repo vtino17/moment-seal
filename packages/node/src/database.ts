@@ -25,6 +25,8 @@ export function buildPostgresVersionedUpdate(input: {
   nextVersion: unknown;
   set: Record<string, unknown>;
 }): VersionedUpdateQuery {
+  if (input.expectedVersion === undefined || input.expectedVersion === null || input.nextVersion === undefined || input.nextVersion === null) throw new MomentNodeError("DATABASE_QUERY_INVALID", "Expected and next row versions must be non-null values.");
+  if (Object.is(input.expectedVersion, input.nextVersion)) throw new MomentNodeError("DATABASE_QUERY_INVALID", "Next row version must differ from the expected version.");
   const entries = Object.entries(input.set).sort(([a], [b]) => a.localeCompare(b));
   if (!entries.length) throw new MomentNodeError("DATABASE_QUERY_INVALID", "Versioned update requires at least one changed field.");
   if (entries.some(([column]) => column === input.idColumn || column === input.versionColumn)) throw new MomentNodeError("DATABASE_QUERY_INVALID", "Set fields cannot replace identity or version columns directly.");

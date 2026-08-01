@@ -10,7 +10,7 @@ MomentSeal compiles the entire plan before execution. It binds observations to r
 
 ## Production-candidate v0.3
 
-The v0.3 line adds Ed25519 signed receipts, trusted-key verification, enforceable HTTP and PostgreSQL concurrency adapters, typed errors, property-based tests, a 5,000-action performance gate, operational guidance, release SBOMs, and provenance attestations. The v0.2 contract hardening remains in force. See [production readiness](docs/PRODUCTION-READINESS.md) and the complete [hardening review](docs/HARDENING.md).
+The v0.3 line adds Ed25519 signed receipts, KMS/HSM signer integration, lifecycle-aware trusted-key verification, enforceable HTTP and PostgreSQL concurrency adapters, typed errors, property-based tests, a 5,000-action performance gate, reproducible release archives, SBOMs, provenance attestations, and an auditable NIST SSDF evidence map. The v0.2 contract hardening remains in force. See [production readiness](docs/PRODUCTION-READINESS.md) and the complete [hardening review](docs/HARDENING.md).
 
 ## What it catches
 
@@ -72,7 +72,7 @@ moment-seal receipt <plan.json> --policy <policy.json> --output <receipt.json>
 moment-seal verify <receipt.json> --plan <plan.json> --policy <policy.json>
 moment-seal keygen --private-output <private.pem> --public-output <public.pem>
 moment-seal sign <receipt.json> --private-key <private.pem> --plan <plan.json> --policy <policy.json> --output <signed.json>
-moment-seal verify-signed <signed.json> --public-key <public.pem> --plan <plan.json> --policy <policy.json>
+moment-seal verify-signed <signed.json> (--public-key <public.pem> | --trust-store <trust.json>) --plan <plan.json> --policy <policy.json>
 moment-seal demo [safe|racy] [--json]
 moment-seal init [directory]
 ```
@@ -131,6 +131,8 @@ pnpm moment verify-signed /tmp/moment-signed-receipt.json --public-key public.pe
 
 Verification trusts the separately supplied public key, never key material inside the envelope. Read [Signing-key management](docs/KEY-MANAGEMENT.md).
 
+Production runtimes can implement the asynchronous `ReceiptSigner` interface with a non-exportable KMS/HSM key and verify rotated keys with `verifySignedReceiptWithTrustStore`. Trust stores bind public-key identity, validity windows, and revocation timestamps.
+
 ## Runtime adapters
 
 `@momentseal/node` provides `guardedFetch`, HTTP observation/commit-state capture, and parameterized PostgreSQL row-version updates. These helpers enforce the compiled optimistic-concurrency boundary at the actual mutation point. See [Adapter integration](docs/ADAPTERS.md) and [Operations](docs/OPERATIONS.md).
@@ -168,4 +170,4 @@ MomentSeal is an original experimental implementation of a snapshot-to-commit co
 
 ## Contributing and security
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). A production deployment still requires independent review and real-backend testing; the exact exit criteria are in [Production readiness](docs/PRODUCTION-READINESS.md). Licensed under [MIT](LICENSE).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). Certification evidence and reviewer instructions are in the [SSDF mapping](docs/SSDF-MAPPING.md) and [independent audit package](docs/AUDIT-PACKAGE.md). A production deployment still requires independent review and real-backend testing; the exact exit criteria are in [Production readiness](docs/PRODUCTION-READINESS.md). Licensed under [MIT](LICENSE).

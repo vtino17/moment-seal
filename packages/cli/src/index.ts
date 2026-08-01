@@ -17,7 +17,9 @@ import {
   generateSigningKeyPair,
   signReceipt,
   verifySignedReceipt,
+  verifySignedReceiptWithTrustStore,
   type SignedReceiptEnvelope,
+  type TrustedReceiptKey,
 } from "@momentseal/node";
 import { mkdir, open, readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -66,6 +68,22 @@ const saveText = async (file: string, content: string, mode = 0o644) => {
   }
 };
 const saveJson = (file: string, value: unknown) => saveText(file, JSON.stringify(value, null, 2));
+interface TrustStoreDocument {
+  trustStoreVersion: "1.0";
+  keys: Array<Omit<TrustedReceiptKey, "publicKey"> & { publicKey: string }>;
+}
+function assertTrustStore(value: unknown): asserts value is TrustStoreDocument {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("Trust store must be an object.");
+  const document = value as Record<string, unknown>;
+  if (Object.keys(document).sort().join("|") !== "keys|trustStoreVersion" || document.trustStoreVersion !== "1.0" || !Array.isArray(document.keys) || document.keys.length < 1 || document.keys.length > 100) throw new Error("Trust store structure or version is invalid.");
+  const allowed = new Set(["keyId", "publicKey", "revokedAt", "validFrom", "validUntil"]);
+  for (const key of document.keys) {
+    if (key === null || typeof key !== "object" || Array.isArray(key)) throw new Error("Trust-store key entry is invalid.");
+    const fields = key as Record<string, unknown>;
+    if (Object.keys(fields).some((field) => !allowed.has(field)) || typeof fields.publicKey !== "string") throw new Error("Trust-store key entry contains invalid fields.");
+    for (const field of ["keyId", "revokedAt", "validFrom", "validUntil"]) if (fields[field] !== undefined && typeof fields[field] !== "string") throw new Error(`Trust-store field ${field} must be a string.`);
+  }
+}
 const statusExit = (status: MomentCompilation["status"]) => {
   process.exitCode = status === "blocked" ? 2 : status === "review" ? 3 : 0;
 };
@@ -87,7 +105,7 @@ Usage:
   moment-seal verify <receipt.json> --plan <plan.json> --policy <policy.json>
   moment-seal keygen --private-output <private.pem> --public-output <public.pem> [--force]
   moment-seal sign <receipt.json> --private-key <private.pem> --plan <plan.json> --policy <policy.json> --output <signed.json> [--force]
-  moment-seal verify-signed <signed.json> --public-key <public.pem> --plan <plan.json> --policy <policy.json>
+  moment-seal verify-signed <signed.json> (--public-key <public.pem> | --trust-store <trust.json>) --plan <plan.json> --policy <policy.json>
   moment-seal demo [safe|racy] [--json]
   moment-seal init [directory] [--force]
 
@@ -182,7 +200,7 @@ async function main(): Promise<void> {
     }
     const privateKey = await readText(privateKeyFile);
     const passphrase = process.env.MOMENTSEAL_KEY_PASSPHRASE;
-    const envelope = await signReceipt({ receipt, privateKey, ...(passphrase ? { passphrase } : {}) });
+    const envelope = await signReceipt({ receipt, plan, policy, privateKey, ...(passphrase ? { passphrase } : {}) });
     await saveText(output, JSON.stringify(envelope, null, 2), 0o600);
     console.log(JSON.stringify({ keyId: envelope.signature.keyId, signedReceipt: resolve(output) }, null, 2));
     return;
@@ -190,11 +208,21 @@ async function main(): Promise<void> {
   if (command === "verify-signed") {
     const envelopeFile = args[1];
     const publicKeyFile = flag("--public-key");
+    const trustStoreFile = flag("--trust-store");
     const planFile = flag("--plan");
     const policyFile = flag("--policy");
-    if (!envelopeFile || !publicKeyFile || !planFile || !policyFile) throw new Error("Provide a signed receipt, --public-key, --plan, and --policy.");
+    if (!envelopeFile || Boolean(publicKeyFile) === Boolean(trustStoreFile) || !planFile || !policyFile) throw new Error("Provide a signed receipt, exactly one of --public-key or --trust-store, plus --plan and --policy.");
     const envelope = await readJson<SignedReceiptEnvelope>(envelopeFile);
-    const result = await verifySignedReceipt({ envelope, publicKey: await readText(publicKeyFile), plan: await readJson<AgentPlan>(planFile), policy: await readJson<MomentPolicy>(policyFile) });
+    const plan = await readJson<AgentPlan>(planFile);
+    const policy = await readJson<MomentPolicy>(policyFile);
+    let result: Awaited<ReturnType<typeof verifySignedReceipt>>;
+    if (trustStoreFile) {
+      const trustStore = await readJson<unknown>(trustStoreFile);
+      assertTrustStore(trustStore);
+      result = await verifySignedReceiptWithTrustStore({ envelope, trustedKeys: trustStore.keys, plan, policy });
+    } else {
+      result = await verifySignedReceipt({ envelope, publicKey: await readText(publicKeyFile!), plan, policy });
+    }
     console.log(JSON.stringify(result, null, 2));
     process.exitCode = result.valid ? 0 : 4;
     return;

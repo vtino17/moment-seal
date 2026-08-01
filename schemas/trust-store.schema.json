@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vtino17/moment-seal/schemas/trust-store.schema.json",
+  "title": "MomentSeal receipt verification trust store",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["trustStoreVersion", "keys"],
+  "properties": {
+    "trustStoreVersion": { "const": "1.0" },
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["publicKey"],
+        "properties": {
+          "publicKey": { "type": "string", "minLength": 1, "maxLength": 16384 },
+          "keyId": { "type": "string", "pattern": "^sha256:[A-Za-z0-9_-]{43}$" },
+          "validFrom": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+          "validUntil": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+          "revokedAt": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" }
+        }
+      }
+    }
+  }
+}

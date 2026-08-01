@@ -33,8 +33,14 @@ try {
   if (((await stat(privateKeyFile)).mode & 0o777) !== 0o600) throw new Error("Private signing key permissions are not 0600.");
   expectExit(runWithPassphrase("sign", receiptFile, "--private-key", privateKeyFile, "--plan", "examples/safe-plan.json", "--policy", "examples/safe-policy.json", "--output", signedReceiptFile), 0, "receipt signing");
   expectExit(run("verify-signed", signedReceiptFile, "--public-key", publicKeyFile, "--plan", "examples/safe-plan.json", "--policy", "examples/safe-policy.json"), 0, "signed receipt verification");
+  const trustStoreFile = join(workspace, "trust-store.json");
+  const trustStore = { trustStoreVersion: "1.0", keys: [{ publicKey: await readFile(publicKeyFile, "utf8"), validFrom: "2026-01-01T00:00:00.000Z" }] };
+  await writeFile(trustStoreFile, `${JSON.stringify(trustStore, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  expectExit(run("verify-signed", signedReceiptFile, "--trust-store", trustStoreFile, "--plan", "examples/safe-plan.json", "--policy", "examples/safe-policy.json"), 0, "trust-store receipt verification");
   const signedReceipt = JSON.parse(await readFile(signedReceiptFile, "utf8"));
-  signedReceipt.signature.value = `${signedReceipt.signature.value.slice(0, -1)}A`;
+  const base64urlAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const signatureLast = signedReceipt.signature.value.at(-1);
+  signedReceipt.signature.value = `${signedReceipt.signature.value.slice(0, -1)}${base64urlAlphabet[base64urlAlphabet.indexOf(signatureLast) + 1]}`;
   await writeFile(signedReceiptFile, `${JSON.stringify(signedReceipt, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   expectExit(run("verify-signed", signedReceiptFile, "--public-key", publicKeyFile, "--plan", "examples/safe-plan.json", "--policy", "examples/safe-policy.json"), 4, "tampered signature verification");
 

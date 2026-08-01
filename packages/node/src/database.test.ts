@@ -15,6 +15,8 @@ describe("PostgreSQL row-version adapter", () => {
   it("rejects direct identity and version replacement", () => {
     expect(() => buildPostgresVersionedUpdate({ table: "invoices", idColumn: "id", versionColumn: "version", id: 1, expectedVersion: 1, nextVersion: 2, set: { version: 99 } })).toThrow("cannot replace");
     expect(() => buildPostgresVersionedUpdate({ table: "invoices", idColumn: "id", versionColumn: "version", id: 1, expectedVersion: 1, nextVersion: 2, set: {} })).toThrow("at least one");
+    expect(() => buildPostgresVersionedUpdate({ table: "invoices", idColumn: "id", versionColumn: "version", id: 1, expectedVersion: 1, nextVersion: 1, set: { status: "done" } })).toThrow("must differ");
+    expect(() => buildPostgresVersionedUpdate({ table: "invoices", idColumn: "id", versionColumn: "version", id: 1, expectedVersion: null, nextVersion: 2, set: { status: "done" } })).toThrow("non-null");
   });
 
   it("returns the exactly one updated row", async () => {

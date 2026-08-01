@@ -46,6 +46,20 @@ export interface SignedReceiptVerification {
   errors: string[];
 }
 
+export interface ReceiptSigner {
+  algorithm: "Ed25519";
+  keyId: string;
+  sign(payload: Uint8Array): Promise<Uint8Array>;
+}
+
+export interface TrustedReceiptKey {
+  publicKey: string | Buffer | KeyObject;
+  keyId?: string;
+  validFrom?: string;
+  validUntil?: string;
+  revokedAt?: string;
+}
+
 const validTimestamp = (value: string): boolean => {
   if (!timestampPattern.test(value)) return false;
   const parsed = new Date(value);
@@ -72,6 +86,14 @@ const signingPayload = (envelope: SignedReceiptEnvelope): Buffer => Buffer.conca
   DOMAIN,
   Buffer.from(canonicalJson(envelopeBody(envelope)), "utf8"),
 ]);
+
+export function receiptSigningPayload(input: { receipt: MomentReceipt; keyId: string; signedAt: string }): Uint8Array {
+  return signingPayload({
+    envelopeVersion: "1.0",
+    receipt: input.receipt,
+    signature: { algorithm: "Ed25519", keyId: input.keyId, signedAt: input.signedAt, value: "" },
+  });
+}
 
 const privateKeyObject = (key: string | Buffer | KeyObject, passphrase?: string | Buffer): KeyObject => {
   try {
@@ -117,12 +139,53 @@ export function keyIdFromPublicKey(key: string | Buffer | KeyObject): string {
 
 export async function signReceipt(input: {
   receipt: MomentReceipt;
+  plan: AgentPlan;
+  policy: MomentPolicy;
   privateKey: string | Buffer | KeyObject;
   passphrase?: string | Buffer;
   signedAt?: Date;
 }): Promise<SignedReceiptEnvelope> {
-  if (input.receipt.receiptHash !== await hashValue(receiptBody(input.receipt))) throw new MomentNodeError("RECEIPT_SIGNATURE_INVALID", "Receipt hash is invalid; refusing to sign.");
+  await assertReceiptForSigning(input.receipt, input.plan, input.policy);
   const key = privateKeyObject(input.privateKey, input.passphrase);
+  return createSignedReceiptEnvelope({
+    receipt: input.receipt,
+    signer: {
+      algorithm: "Ed25519",
+      keyId: keyIdFromPublicKey(createPublicKey(key)),
+      sign: async (payload) => sign(null, payload, key),
+    },
+    ...(input.signedAt ? { signedAt: input.signedAt } : {}),
+  });
+}
+
+export async function signReceiptWithSigner(input: {
+  receipt: MomentReceipt;
+  plan: AgentPlan;
+  policy: MomentPolicy;
+  signer: ReceiptSigner;
+  signedAt?: Date;
+}): Promise<SignedReceiptEnvelope> {
+  await assertReceiptForSigning(input.receipt, input.plan, input.policy);
+  return createSignedReceiptEnvelope(input);
+}
+
+const assertReceiptForSigning = async (receipt: MomentReceipt, plan: AgentPlan, policy: MomentPolicy): Promise<void> => {
+  if (receipt.receiptHash !== await hashValue(receiptBody(receipt))) throw new MomentNodeError("RECEIPT_SIGNATURE_INVALID", "Receipt hash is invalid; refusing to sign.");
+  try {
+    const compilation = await compileMoments({ plan, policy, compiledAt: new Date(receipt.compiledAt) });
+    const verification = await verifyReceipt({ receipt, plan, policy, compilation });
+    if (!verification.valid) throw new Error(verification.errors.join(" "));
+  } catch (error) {
+    throw new MomentNodeError("RECEIPT_SIGNATURE_INVALID", "Receipt is not independently valid for the supplied plan and policy; refusing to sign.", { cause: error });
+  }
+};
+
+const createSignedReceiptEnvelope = async (input: {
+  receipt: MomentReceipt;
+  signer: ReceiptSigner;
+  signedAt?: Date;
+}): Promise<SignedReceiptEnvelope> => {
+  if (input.signer.algorithm !== "Ed25519" || !/^sha256:[A-Za-z0-9_-]{43}$/.test(input.signer.keyId)) throw new MomentNodeError("KEY_INVALID", "External signer must declare Ed25519 and a SHA-256 SPKI key id.");
   const signedAt = input.signedAt ?? new Date();
   if (!Number.isFinite(signedAt.getTime()) || signedAt.getTime() < Date.parse(input.receipt.issuedAt)) throw new MomentNodeError("SIGNED_ENVELOPE_INVALID", "Signature time must be valid and cannot predate receipt issuance.");
   const envelope: SignedReceiptEnvelope = {
@@ -130,14 +193,21 @@ export async function signReceipt(input: {
     receipt: input.receipt,
     signature: {
       algorithm: "Ed25519",
-      keyId: keyIdFromPublicKey(createPublicKey(key)),
+      keyId: input.signer.keyId,
       signedAt: signedAt.toISOString(),
       value: "",
     },
   };
-  envelope.signature.value = sign(null, signingPayload(envelope), key).toString("base64url");
+  let signature: Uint8Array;
+  try {
+    signature = await input.signer.sign(receiptSigningPayload({ receipt: envelope.receipt, keyId: envelope.signature.keyId, signedAt: envelope.signature.signedAt }));
+  } catch (error) {
+    throw new MomentNodeError("SIGNER_FAILED", "External receipt signer failed.", { cause: error });
+  }
+  if (!(signature instanceof Uint8Array) || signature.byteLength !== 64) throw new MomentNodeError("SIGNER_FAILED", "Ed25519 signer must return exactly 64 signature bytes.");
+  envelope.signature.value = Buffer.from(signature).toString("base64url");
   return envelope;
-}
+};
 
 const isEnvelope = (value: unknown): value is SignedReceiptEnvelope => {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
@@ -169,7 +239,10 @@ export async function verifySignedReceipt(input: {
   const timeline = validTimestamp(envelope.signature.signedAt) && Date.parse(envelope.signature.signedAt) >= Date.parse(envelope.receipt.issuedAt);
   let signatureValid = false;
   try {
-    signatureValid = verify(null, signingPayload(envelope), key, Buffer.from(envelope.signature.value, "base64url"));
+    const signature = Buffer.from(envelope.signature.value, "base64url");
+    signatureValid = signature.byteLength === 64
+      && signature.toString("base64url") === envelope.signature.value
+      && verify(null, signingPayload(envelope), key, signature);
   } catch {
     signatureValid = false;
   }
@@ -183,4 +256,53 @@ export async function verifySignedReceipt(input: {
   const checks = { envelope: true, signature: signatureValid, keyId: keyIdValid, timeline, receipt: receiptVerification?.valid === true };
   const errors = Object.entries(checks).filter(([, valid]) => !valid).map(([name]) => `${name} verification failed.`);
   return { valid: errors.length === 0, checks, receiptVerification, errors };
+}
+
+const trustedAtSigningTime = (key: TrustedReceiptKey, signedAt: string): boolean => {
+  const signed = Date.parse(signedAt);
+  const parseBoundary = (value: string | undefined): number | null => {
+    if (value === undefined) return null;
+    return validTimestamp(value) ? Date.parse(value) : Number.NaN;
+  };
+  const validFrom = parseBoundary(key.validFrom);
+  const validUntil = parseBoundary(key.validUntil);
+  const revokedAt = parseBoundary(key.revokedAt);
+  return Number.isFinite(signed)
+    && (validFrom === null || (Number.isFinite(validFrom) && signed >= validFrom))
+    && (validUntil === null || (Number.isFinite(validUntil) && signed < validUntil))
+    && (revokedAt === null || (Number.isFinite(revokedAt) && signed < revokedAt));
+};
+
+export async function verifySignedReceiptWithTrustStore(input: {
+  envelope: unknown;
+  trustedKeys: readonly TrustedReceiptKey[];
+  plan: AgentPlan;
+  policy: MomentPolicy;
+}): Promise<SignedReceiptVerification> {
+  if (!isEnvelope(input.envelope)) return verifySignedReceipt({ envelope: input.envelope, publicKey: "invalid", plan: input.plan, policy: input.policy });
+  const candidates: Array<{ key: TrustedReceiptKey; derivedKeyId: string }> = [];
+  for (const key of input.trustedKeys) {
+    try {
+      const derivedKeyId = keyIdFromPublicKey(key.publicKey);
+      if (key.keyId !== undefined && key.keyId !== derivedKeyId) continue;
+      if (derivedKeyId === input.envelope.signature.keyId) candidates.push({ key, derivedKeyId });
+    } catch {
+      continue;
+    }
+  }
+  if (candidates.length !== 1) return {
+    valid: false,
+    checks: { envelope: true, signature: false, keyId: false, timeline: false, receipt: false },
+    receiptVerification: null,
+    errors: [candidates.length ? "Trusted key id is ambiguous." : "No trusted key matches the signed receipt."],
+  };
+  const candidate = candidates[0]!;
+  const result = await verifySignedReceipt({ envelope: input.envelope, publicKey: candidate.key.publicKey, plan: input.plan, policy: input.policy });
+  if (trustedAtSigningTime(candidate.key, input.envelope.signature.signedAt)) return result;
+  return {
+    ...result,
+    valid: false,
+    checks: { ...result.checks, keyId: false },
+    errors: [...result.errors, "Trusted key was outside its signing validity window or revoked."],
+  };
 }

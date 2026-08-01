@@ -14,8 +14,17 @@ describe("signed-receipt JSON Schema", () => {
     const compilation = await compileMoments({ plan: safePlan, policy: safePolicy, compiledAt: new Date("2026-07-29T03:09:00.000Z") });
     const receipt = await issueReceipt({ plan: safePlan, policy: safePolicy, compilation, issuedAt: new Date("2026-07-29T03:10:00.000Z") });
     const keys = generateSigningKeyPair("test-passphrase");
-    const envelope = await signReceipt({ receipt, privateKey: keys.privateKey, passphrase: "test-passphrase", signedAt: new Date("2026-07-29T03:11:00.000Z") });
+    const envelope = await signReceipt({ receipt, plan: safePlan, policy: safePolicy, privateKey: keys.privateKey, passphrase: "test-passphrase", signedAt: new Date("2026-07-29T03:11:00.000Z") });
     expect(validate(envelope), JSON.stringify(validate.errors)).toBe(true);
     expect(validate({ ...envelope, trusted: true })).toBe(false);
+  });
+
+  it("validates bounded receipt trust stores", async () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: true, formats: { "date-time": true } });
+    const validate = ajv.compile(await loadSchema("trust-store"));
+    const keys = generateSigningKeyPair("test-passphrase");
+    const document = { trustStoreVersion: "1.0", keys: [{ publicKey: keys.publicKey, keyId: keys.keyId, validFrom: "2026-07-01T00:00:00.000Z" }] };
+    expect(validate(document), JSON.stringify(validate.errors)).toBe(true);
+    expect(validate({ ...document, keys: [] })).toBe(false);
   });
 });
