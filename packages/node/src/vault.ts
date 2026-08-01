@@ -1,3 +1,4 @@
+import { createPublicKey } from "node:crypto";
 import { MomentNodeError } from "./errors.js";
 import { keyIdFromPublicKey, type ReceiptSigner } from "./signature.js";
 
@@ -98,6 +99,23 @@ const request = async (config: VaultConfiguration, path: string, init: RequestIn
 
 const record = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 
+const vaultPublicKeyToPem = (value: string): string => {
+  try {
+    const key = value.startsWith("-----BEGIN PUBLIC KEY-----")
+      ? createPublicKey(value)
+      : (() => {
+        const raw = Buffer.from(value, "base64");
+        if (raw.byteLength !== 32 || raw.toString("base64") !== value) throw new Error("Expected canonical Base64 Ed25519 public key bytes.");
+        const ed25519SpkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
+        return createPublicKey({ key: Buffer.concat([ed25519SpkiPrefix, raw]), format: "der", type: "spki" });
+      })();
+    if (key.asymmetricKeyType !== "ed25519") throw new Error("Expected an Ed25519 public key.");
+    return key.export({ type: "spki", format: "pem" }).toString();
+  } catch (error) {
+    throw new MomentNodeError("KEY_INVALID", "Vault returned an invalid Ed25519 public key.", { cause: error });
+  }
+};
+
 export async function loadVaultTransitSigner(options: VaultTransitOptions): Promise<LoadedVaultTransitSigner> {
   const config = configuration(options);
   const keyResponse = record(await request(config, `/v1/${encodeURIComponent(config.mount)}/keys/${encodeURIComponent(config.keyName)}`));
@@ -106,8 +124,9 @@ export async function loadVaultTransitSigner(options: VaultTransitOptions): Prom
   const keyVersion = config.keyVersion ?? latestVersion;
   const keys = record(data?.keys);
   const key = record(typeof keyVersion === "number" ? keys?.[String(keyVersion)] : undefined);
-  const publicKey = key?.public_key;
-  if (data?.type !== "ed25519" || data.supports_signing !== true || !Number.isSafeInteger(keyVersion) || (keyVersion as number) < 1 || typeof publicKey !== "string") throw new MomentNodeError("KEY_INVALID", "Vault key metadata is not a usable Ed25519 signing key.");
+  const encodedPublicKey = key?.public_key;
+  if (data?.type !== "ed25519" || data.supports_signing !== true || !Number.isSafeInteger(keyVersion) || (keyVersion as number) < 1 || typeof encodedPublicKey !== "string") throw new MomentNodeError("KEY_INVALID", "Vault key metadata is not a usable Ed25519 signing key.");
+  const publicKey = vaultPublicKeyToPem(encodedPublicKey);
   const resolvedVersion = keyVersion as number;
   const keyId = keyIdFromPublicKey(publicKey);
   const signer: ReceiptSigner = {
