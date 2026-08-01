@@ -11,6 +11,7 @@ Version 0.3 is certification-ready evidence, not a certification. It includes de
 - Release workflows produce a CycloneDX SBOM, SHA-256 checksum, and Sigstore-backed GitHub attestation.
 - Release archives are byte-for-byte reproducible under a fixed source commit timestamp.
 - NIST SSDF evidence and independent-review scope are checked into the repository.
+- Ephemeral PostgreSQL and Vault Transit CI services exercise real concurrency and external-signing paths; see [pilot validation](PILOT-VALIDATION.md).
 
 ## Required before a real production launch
 
@@ -20,6 +21,8 @@ Version 0.3 is certification-ready evidence, not a certification. It includes de
 - Capacity testing with representative plan shapes and traffic.
 - Incident response, monitoring, data retention, privacy, and disaster-recovery procedures owned by the deploying organization.
 - A staged rollout beginning with reversible actions.
+
+Auditor candidates and selection questions are recorded in [the independent auditor shortlist](AUDITOR-SHORTLIST.md). OpenSSF Passing application evidence is prepared in [the application worksheet](OPENSSF-APPLICATION.md), but submission remains an authenticated maintainer attestation.
 
 ## Certification decision
 

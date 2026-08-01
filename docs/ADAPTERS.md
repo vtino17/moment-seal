@@ -14,6 +14,14 @@ Only `POST`, `PUT`, `PATCH`, and `DELETE` are accepted. Callers must provide 1 t
 
 Run the update inside the application's transaction. The version column must change on every mutation, including writes performed by other services. Database triggers or a centralized repository layer are recommended when multiple writers exist.
 
+## Vault Transit signing
+
+`loadVaultTransitSigner` loads an Ed25519 public key and fixed key version from HashiCorp Vault Transit, derives the MomentSeal key id from its SPKI bytes, and exposes the asynchronous `ReceiptSigner` interface. The adapter sends only the canonical payload, requires HTTPS by default, disables redirects, applies a bounded timeout, limits response size, validates Vault's versioned signature envelope, and rejects non-canonical or non-64-byte signatures.
+
+The caller supplies Vault authentication through runtime secret injection. Tokens are never accepted in URLs or included in adapter error messages. Use a least-privilege policy that permits only `read` on the selected key and `update` on its sign endpoint. Loopback HTTP is available only through the explicit development flag and must not be enabled for a remote service.
+
+Vault Transit proves external key custody but is not automatically an HSM or FIPS boundary. The selected Vault edition, seal, storage, deployment, key type, and compliance mode determine those properties. Exercise the exact production configuration before launch.
+
 ## Adapter acceptance tests
 
 Before production rollout, prove all of the following against the real backend:

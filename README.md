@@ -131,11 +131,11 @@ pnpm moment verify-signed /tmp/moment-signed-receipt.json --public-key public.pe
 
 Verification trusts the separately supplied public key, never key material inside the envelope. Read [Signing-key management](docs/KEY-MANAGEMENT.md).
 
-Production runtimes can implement the asynchronous `ReceiptSigner` interface with a non-exportable KMS/HSM key and verify rotated keys with `verifySignedReceiptWithTrustStore`. Trust stores bind public-key identity, validity windows, and revocation timestamps.
+Production runtimes can implement the asynchronous `ReceiptSigner` interface with a non-exportable KMS/HSM key and verify rotated keys with `verifySignedReceiptWithTrustStore`. `loadVaultTransitSigner` provides a hardened HashiCorp Vault Transit implementation. Trust stores bind public-key identity, validity windows, and revocation timestamps.
 
 ## Runtime adapters
 
-`@momentseal/node` provides `guardedFetch`, HTTP observation/commit-state capture, and parameterized PostgreSQL row-version updates. These helpers enforce the compiled optimistic-concurrency boundary at the actual mutation point. See [Adapter integration](docs/ADAPTERS.md) and [Operations](docs/OPERATIONS.md).
+`@momentseal/node` provides `guardedFetch`, HTTP observation/commit-state capture, parameterized PostgreSQL row-version updates, and Vault Transit receipt signing. These helpers enforce the compiled optimistic-concurrency and key-custody boundaries at the actual mutation point. See [Adapter integration](docs/ADAPTERS.md), [pilot validation](docs/PILOT-VALIDATION.md), and [Operations](docs/OPERATIONS.md).
 
 ## Fail-closed operation
 
