@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {
   compileMoments,
+  assertPlan,
   issueReceipt,
   racyPlan,
   racyPolicy,
@@ -10,24 +11,44 @@ import {
   type AgentPlan,
   type MomentCompilation,
   type MomentPolicy,
-  type MomentReceipt,
 } from "@momentseal/core";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { formatCompilation, formatDot } from "./format.js";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "help";
+const MAX_INPUT_BYTES = 1_048_576;
 const has = (name: string) => args.includes(name);
 const flag = (name: string): string | undefined => {
-  const index = args.indexOf(name);
-  return index >= 0 ? args[index + 1] : undefined;
+  const indexes = args.flatMap((value, index) => value === name ? [index] : []);
+  if (indexes.length > 1) throw new Error(`Flag ${name} can only be supplied once.`);
+  if (!indexes.length) return undefined;
+  const value = args[indexes[0]! + 1];
+  if (!value || value.startsWith("--")) throw new Error(`Flag ${name} requires a value.`);
+  return value;
 };
-const readJson = async <T>(file: string): Promise<T> => JSON.parse(await readFile(resolve(file), "utf8")) as T;
-const saveText = async (file: string, content: string) => {
+const readJson = async <T>(file: string): Promise<T> => {
+  const target = resolve(file);
+  const metadata = await stat(target);
+  if (!metadata.isFile()) throw new Error(`Input is not a regular file: ${target}`);
+  if (metadata.size > MAX_INPUT_BYTES) throw new Error(`Input exceeds the ${MAX_INPUT_BYTES}-byte limit: ${target}`);
+  try {
+    return JSON.parse(await readFile(target, "utf8")) as T;
+  } catch (error) {
+    throw new Error(`Cannot parse JSON from ${target}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+const saveText = async (file: string, content: string, mode = 0o644) => {
   const target = resolve(file);
   await mkdir(dirname(target), { recursive: true });
-  await writeFile(target, `${content}\n`, "utf8");
+  const handle = await open(target, has("--force") ? "w" : "wx", mode);
+  try {
+    await handle.writeFile(`${content}\n`, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
 };
 const saveJson = (file: string, value: unknown) => saveText(file, JSON.stringify(value, null, 2));
 const statusExit = (status: MomentCompilation["status"]) => {
@@ -46,16 +67,19 @@ Usage:
   moment-seal compile <plan.json> --policy <policy.json> [--json]
   moment-seal explain <plan.json> --policy <policy.json> --action <id>
   moment-seal timeline <plan.json> --policy <policy.json> --resource <id>
-  moment-seal graph <plan.json> --policy <policy.json> [--output graph.dot]
-  moment-seal receipt <plan.json> --policy <policy.json> --output <receipt.json>
+  moment-seal graph <plan.json> --policy <policy.json> [--output graph.dot] [--force]
+  moment-seal receipt <plan.json> --policy <policy.json> --output <receipt.json> [--force]
   moment-seal verify <receipt.json> --plan <plan.json> --policy <policy.json>
   moment-seal demo [safe|racy] [--json]
-  moment-seal init [directory]`;
+  moment-seal init [directory] [--force]
+
+Inputs are limited to 1 MiB. Existing output files are never replaced unless --force is explicit.`;
 
 async function main(): Promise<void> {
   if (command === "help" || has("--help") || has("-h")) return console.log(help);
   if (command === "inspect") {
     const plan = await readJson<AgentPlan>(args[1] ?? "");
+    assertPlan(plan);
     console.log(JSON.stringify({
       planId: plan.planId,
       observations: plan.observations.length,
@@ -90,8 +114,14 @@ async function main(): Promise<void> {
     if (!planFile || !policyFile) throw new Error("Provide --plan and --policy.");
     const plan = await readJson<AgentPlan>(planFile);
     const policy = await readJson<MomentPolicy>(policyFile);
-    const receipt = await readJson<MomentReceipt>(args[1] ?? "");
-    const compilation = await compileMoments({ plan, policy, compiledAt: new Date(receipt.compiledAt) });
+    const receipt = await readJson<unknown>(args[1] ?? "");
+    const receiptCompiledAt = receipt !== null && typeof receipt === "object" && "compiledAt" in receipt && typeof receipt.compiledAt === "string" ? receipt.compiledAt : undefined;
+    if (!receiptCompiledAt || !Number.isFinite(Date.parse(receiptCompiledAt))) {
+      console.log(JSON.stringify({ valid: false, errors: ["Receipt compilation timestamp is invalid."] }, null, 2));
+      process.exitCode = 4;
+      return;
+    }
+    const compilation = await compileMoments({ plan, policy, compiledAt: new Date(receiptCompiledAt) });
     const result = await verifyReceipt({ receipt, plan, policy, compilation });
     console.log(JSON.stringify(result, null, 2));
     process.exitCode = result.valid ? 0 : 4;
@@ -139,7 +169,7 @@ async function main(): Promise<void> {
     const output = flag("--output");
     if (!output) throw new Error("Provide --output <receipt.json>.");
     const receipt = await issueReceipt({ ...source, compilation: result });
-    await saveJson(output, receipt);
+    await saveText(output, JSON.stringify(receipt, null, 2), 0o600);
     console.log(`Issued ${receipt.receiptHash} to ${resolve(output)}`);
     return;
   }

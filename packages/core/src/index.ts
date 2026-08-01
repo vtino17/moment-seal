@@ -9,6 +9,7 @@ export type {
   CommitState,
   MomentCompilation,
   MomentFinding,
+  MomentFindingCode,
   MomentPolicy,
   MomentReceipt,
   PlannedAction,

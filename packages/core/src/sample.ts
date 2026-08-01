@@ -1,7 +1,7 @@
 import type { AgentPlan, MomentPolicy } from "./types.js";
 
 export const safePlan: AgentPlan = {
-  planVersion: "1.0",
+  planVersion: "2.0",
   planId: "finance-agent-plan",
   observations: [
     {
@@ -26,8 +26,8 @@ export const safePlan: AgentPlan = {
     },
   ],
   commitStates: [
-    { resourceId: "invoice/204", currentVersion: "v7", capturedAt: "2026-07-29T03:02:00.000Z", exists: true },
-    { resourceId: "repo/acme/config", currentVersion: "41", capturedAt: "2026-07-29T03:02:00.000Z", exists: true },
+    { id: "invoice-at-commit", actionId: "settle-invoice", resourceId: "invoice/204", currentVersion: "v7", capturedAt: "2026-07-29T03:02:45.000Z", exists: true, scopeHash: "scope:invoice:204" },
+    { id: "repo-at-commit", actionId: "merge-config", resourceId: "repo/acme/config", currentVersion: "41", capturedAt: "2026-07-29T03:03:45.000Z", exists: true, scopeHash: "scope:repo:acme:config" },
   ],
   actions: [
     {
@@ -37,11 +37,15 @@ export const safePlan: AgentPlan = {
       resourceId: "invoice/204",
       observationId: "invoice-v7",
       expectedVersion: "v7",
+      commitStateId: "invoice-at-commit",
+      scopeHash: "scope:invoice:204",
       commitAt: "2026-07-29T03:03:00.000Z",
       consistency: "if-match",
-      revalidatedAt: "2026-07-29T03:02:30.000Z",
+      revalidatedAt: "2026-07-29T03:02:50.000Z",
+      revalidatedVersion: "v7",
+      revalidatedScopeHash: "scope:invoice:204",
       irreversible: true,
-      mutationHash: "sha256:settle-invoice",
+      mutationHash: "sha256:a519bf6b107719f37fd00e45b92119cca8bc7cfc017eaa60c482553f0875cdd0",
       dependsOnActionIds: [],
     },
     {
@@ -51,29 +55,36 @@ export const safePlan: AgentPlan = {
       resourceId: "repo/acme/config",
       observationId: "repo-v41",
       expectedVersion: "41",
+      commitStateId: "repo-at-commit",
+      scopeHash: "scope:repo:acme:config",
       commitAt: "2026-07-29T03:04:00.000Z",
       consistency: "transaction",
       irreversible: false,
-      mutationHash: "sha256:merge-config",
+      mutationHash: "sha256:3a85fe0a15338a9827d2465f4ad0f5bd73bdb03947b2c89734e1fc2828caa775",
       dependsOnActionIds: ["settle-invoice"],
     },
   ],
 };
 
 export const safePolicy: MomentPolicy = {
-  policyVersion: "1.0",
+  policyVersion: "2.0",
   planId: "finance-agent-plan",
   maximumObservationAgeMs: 300_000,
   maximumCheckUseGapMs: 300_000,
+  maximumCommitStateAgeMs: 30_000,
   maximumRevalidationAgeMs: 60_000,
   minimumAuthority: 80,
   requireConditionalForMutations: true,
   requireRevalidationForIrreversible: true,
+  requireScopeBinding: true,
   maximumDependencyDepth: 3,
+  maximumActions: 100,
+  maximumObservations: 100,
+  maximumDependencyEdges: 300,
 };
 
 export const racyPlan: AgentPlan = {
-  planVersion: "1.0",
+  planVersion: "2.0",
   planId: "racy-support-agent",
   observations: [
     {
@@ -98,8 +109,9 @@ export const racyPlan: AgentPlan = {
     },
   ],
   commitStates: [
-    { resourceId: "ticket/204", currentVersion: "v8", capturedAt: "2026-07-29T03:04:00.000Z", exists: true },
-    { resourceId: "account/88", currentVersion: "v4", capturedAt: "2026-07-29T03:05:00.000Z", exists: true },
+    { id: "ticket-refund-state", actionId: "refund-ticket", resourceId: "ticket/204", currentVersion: "v8", capturedAt: "2026-07-29T03:05:00.000Z", exists: true, scopeHash: "scope:ticket:admin" },
+    { id: "ticket-notify-state", actionId: "notify-customer", resourceId: "ticket/204", currentVersion: "v8", capturedAt: "2026-07-29T03:05:30.000Z", exists: true, scopeHash: "scope:ticket:204" },
+    { id: "account-delete-state", actionId: "delete-account", resourceId: "account/88", currentVersion: "v4", capturedAt: "2026-07-29T03:05:00.000Z", exists: false, scopeHash: "scope:account:88" },
   ],
   actions: [
     {
@@ -109,10 +121,12 @@ export const racyPlan: AgentPlan = {
       resourceId: "ticket/204",
       observationId: "ticket-v7",
       expectedVersion: "v7",
+      commitStateId: "ticket-refund-state",
+      scopeHash: "scope:ticket:204",
       commitAt: "2026-07-29T03:06:00.000Z",
       consistency: "none",
       irreversible: true,
-      mutationHash: "sha256:refund-ticket",
+      mutationHash: "sha256:0a066cfccb5940250c866a640e9f2c26ea18c227535ff310b7b054a52b6d131e",
       dependsOnActionIds: [],
     },
     {
@@ -122,10 +136,12 @@ export const racyPlan: AgentPlan = {
       resourceId: "ticket/204",
       observationId: "ticket-v7",
       expectedVersion: "v7",
+      commitStateId: "ticket-notify-state",
+      scopeHash: "scope:ticket:204",
       commitAt: "2026-07-29T03:07:00.000Z",
       consistency: "none",
       irreversible: false,
-      mutationHash: "sha256:notify-customer",
+      mutationHash: "sha256:f8b860e2a0ba51f5ee341b15ed406abf5cf42450fac06217d2888b4be01e02ef",
       dependsOnActionIds: ["refund-ticket"],
     },
     {
@@ -135,11 +151,15 @@ export const racyPlan: AgentPlan = {
       resourceId: "account/88",
       observationId: "account-v3",
       expectedVersion: "v3",
+      commitStateId: "account-delete-state",
+      scopeHash: "scope:account:88",
       commitAt: "2026-07-29T03:08:00.000Z",
       consistency: "lease",
       revalidatedAt: "2026-07-29T03:01:30.000Z",
+      revalidatedVersion: "v3",
+      revalidatedScopeHash: "scope:account:legacy",
       irreversible: true,
-      mutationHash: "sha256:delete-account",
+      mutationHash: "sha256:aaa423a446e89ca98776a4569ee20adbacc19a47440158f6c76b25a6419b7e5c",
       dependsOnActionIds: ["notify-customer"],
     },
     {
@@ -149,8 +169,9 @@ export const racyPlan: AgentPlan = {
       resourceId: "knowledge/a",
       commitAt: "2026-07-29T03:08:00.000Z",
       consistency: "none",
+      scopeHash: "scope:knowledge:a",
       irreversible: false,
-      mutationHash: "sha256:read-a",
+      mutationHash: "sha256:3200917ed6faa6477e1d912e6fb591670719788c043d0c9e68068216cbb1938b",
       dependsOnActionIds: ["cycle-b"],
     },
     {
@@ -160,8 +181,9 @@ export const racyPlan: AgentPlan = {
       resourceId: "knowledge/b",
       commitAt: "2026-07-29T03:08:30.000Z",
       consistency: "none",
+      scopeHash: "scope:knowledge:b",
       irreversible: false,
-      mutationHash: "sha256:read-b",
+      mutationHash: "sha256:babc782a62f74a547ea6b548d0f7ed3ae72d12c9e88b345a28db5e3180561f75",
       dependsOnActionIds: ["cycle-a"],
     },
   ],

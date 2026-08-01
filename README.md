@@ -8,15 +8,22 @@ MomentSeal compiles the entire plan before execution. It binds observations to r
 
 > Experimental safety tooling. MomentSeal is a deterministic preflight compiler, not a transaction coordinator or an authorization system.
 
+## Hardened v0.2 model
+
+The v0.2 contract intentionally breaks the initial prototype format. Every action now binds its own commit-state snapshot and authority scope. Compilation output embeds hashes of the exact plan and policy, receipts reject cross-plan compilation laundering, canonical JSON fails closed on unsupported values, and policy budgets bound graph work. See the complete [hardening review](docs/HARDENING.md).
+
 ## What it catches
 
 - stale, expired, low-authority, or wrong-resource observations;
+- stale, missing, wrong-action, or wrong-resource commit snapshots;
+- authority-scope changes across observation, commit state, action, lease, and revalidation;
 - commit-time version drift and predicted `If-Match` failures;
 - blind writes, deletes, and external effects without a transaction, lease, or conditional write;
 - irreversible actions without recent revalidation;
 - evidence invalidated by an earlier action in the same plan;
 - competing writes to one version, missing commit snapshots, and create collisions;
 - orphan dependencies, invalid order, cycles, and excessive dependency depth.
+- oversized action, observation, and dependency-edge sets.
 
 ```mermaid
 flowchart LR
@@ -36,6 +43,8 @@ Requires Node.js 20+ and pnpm.
 corepack enable
 pnpm install
 pnpm check
+pnpm test:coverage
+pnpm security:deps
 
 pnpm moment demo safe
 pnpm moment demo racy
@@ -72,10 +81,10 @@ Exit codes are stable: `0` clean, `2` blocked, `3` review, `4` invalid receipt, 
 A plan has three temporal layers:
 
 1. **Observation** — what the agent saw, including version, source, authority, scope, capture time, and expiry.
-2. **Commit state** — the resource version captured immediately before execution.
-3. **Action** — the intended mutation, expected version, commit time, concurrency mechanism, dependencies, and revalidation.
+2. **Commit state** — a per-action resource version and authorization scope captured immediately before execution.
+3. **Action** — the intended mutation, expected version, authority scope, commit-state binding, concurrency mechanism, dependencies, and versioned revalidation.
 
-The policy defines acceptable evidence age, check-to-use gap, authority, revalidation window, and graph depth. The compiler produces per-action decisions, aggregate metrics, a temporal graph, and a deterministic SHA-256 compilation hash.
+The policy defines acceptable evidence age, commit-state age, check-to-use gap, authority, revalidation window, graph depth, and resource budgets. The compiler produces per-action decisions, aggregate metrics, a temporal graph, input hashes, and a deterministic SHA-256 compilation hash.
 
 See [Plan format](docs/PLAN.md), [Policy reference](docs/POLICY.md), and [Runtime integration](docs/INTEGRATION.md).
 
@@ -103,7 +112,16 @@ pnpm moment verify /tmp/moment-receipt.json \
   --policy examples/safe-policy.json
 ```
 
-Receipts bind the plan, policy, compilation, timestamp, and committed action IDs. They detect later mutation; they are not digital signatures. Sign the receipt with your existing provenance system when producer identity matters.
+Receipts bind the plan, policy, self-verified compilation, timestamp, and exact committed action IDs. Issuance fails unless the compilation is clean and cryptographically bound to the supplied inputs. Verification also checks action semantics and timeline order. Receipts detect later mutation; they are not digital signatures. Sign the receipt with your existing provenance system when producer identity matters.
+
+## Fail-closed operation
+
+- JSON input is capped at 1 MiB by the CLI.
+- Canonical timestamps must use UTC with millisecond precision.
+- Mutation hashes must use `sha256:<64 lowercase hex characters>`.
+- Existing output files are preserved unless `--force` is explicit.
+- Canonical hashing rejects cycles, sparse arrays, non-finite numbers, class instances, and undefined values.
+- Dependency analysis is iterative and bounded, avoiding recursive graph exhaustion.
 
 ## Why this matters
 
@@ -119,7 +137,7 @@ packages/cli    automation-friendly command line interface
 apps/studio     interactive temporal trace
 examples        clean and intentionally racy plans
 schemas         JSON Schema contracts
-docs            model, policy, integration, and threat boundaries
+docs            model, policy, hardening review, integration, and threat boundaries
 ```
 
 ## Project status and originality

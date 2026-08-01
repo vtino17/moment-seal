@@ -43,7 +43,7 @@ describe("schema validation", () => {
   it("rejects backwards expiry", () => {
     const plan = copy(safePlan);
     plan.observations[0]!.expiresAt = "2026-07-29T02:00:00.000Z";
-    expect(() => assertPlan(plan)).toThrow("expires before");
+    expect(() => assertPlan(plan)).toThrow("expire after");
   });
 
   it("rejects unknown action kinds", () => {
@@ -60,5 +60,35 @@ describe("schema validation", () => {
 
   it("rejects policy authority over 100", () => {
     expect(() => assertPolicy({ ...safePolicy, minimumAuthority: 101 })).toThrow("must not exceed");
+  });
+
+  it("rejects non-canonical timestamps", () => {
+    const plan = copy(safePlan);
+    plan.actions[0]!.commitAt = "2026-07-29T03:03:00Z";
+    expect(() => assertPlan(plan)).toThrow("canonical UTC");
+  });
+
+  it("rejects malformed mutation digests", () => {
+    const plan = copy(safePlan);
+    plan.actions[0]!.mutationHash = "sha256:not-a-digest";
+    expect(() => assertPlan(plan)).toThrow("mutation hash");
+  });
+
+  it("rejects partial revalidation evidence", () => {
+    const plan = copy(safePlan);
+    delete plan.actions[0]!.revalidatedVersion;
+    expect(() => assertPlan(plan)).toThrow("supplied together");
+  });
+
+  it("rejects duplicate commit-state action bindings", () => {
+    const plan = copy(safePlan);
+    plan.commitStates[1]!.actionId = plan.commitStates[0]!.actionId;
+    expect(() => assertPlan(plan)).toThrow("Multiple commit states");
+  });
+
+  it("rejects excessive direct dependencies before graph analysis", () => {
+    const plan = copy(safePlan);
+    plan.actions[0]!.dependsOnActionIds = Array.from({ length: 257 }, (_, index) => `dependency-${index}`);
+    expect(() => assertPlan(plan)).toThrow("Invalid action fields");
   });
 });

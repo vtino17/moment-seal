@@ -1,0 +1,23 @@
+# Changelog
+
+## 0.2.0 - 2026-08-01
+
+### Security and correctness
+
+- Bind each commit-state snapshot to exactly one action.
+- Bind authority scope across observation, commit state, action, lease, and revalidation.
+- Bind compilation envelopes to exact plan and policy hashes.
+- Reject receipt issuance for non-clean, mismatched, or internally modified compilations.
+- Verify receipt action semantics and timeline order.
+- Add commit-state freshness, resource-existence, create-guard, and graph-budget invariants.
+- Replace recursive dependency analysis with an iterative bounded algorithm.
+- Make canonical hashing and CLI file handling fail closed.
+
+### Tooling
+
+- Add coverage thresholds, dependency audits, Dependabot, CODEOWNERS, and expanded adversarial tests.
+- Add `If-None-Match` create semantics and two new Studio metrics.
+
+## 0.1.0 - 2026-07-29
+
+- Initial snapshot-to-commit compiler, CLI, receipt, examples, schemas, and Studio.

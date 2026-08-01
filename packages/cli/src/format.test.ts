@@ -20,6 +20,7 @@ describe("CLI formatting", () => {
     expect(output).toContain("digraph MomentSeal");
     expect(output).toContain("observation:invoice-v7");
     expect(output).toContain("action:settle-invoice");
+    expect(output).toContain("state:invoice-at-commit");
     expect(output).toContain("label=\"depends\"");
   });
 });

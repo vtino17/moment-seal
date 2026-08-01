@@ -9,21 +9,31 @@
     "planId",
     "maximumObservationAgeMs",
     "maximumCheckUseGapMs",
+    "maximumCommitStateAgeMs",
     "maximumRevalidationAgeMs",
     "minimumAuthority",
     "requireConditionalForMutations",
     "requireRevalidationForIrreversible",
-    "maximumDependencyDepth"
+    "requireScopeBinding",
+    "maximumDependencyDepth",
+    "maximumActions",
+    "maximumObservations",
+    "maximumDependencyEdges"
   ],
   "properties": {
-    "policyVersion": { "const": "1.0" },
-    "planId": { "type": "string", "minLength": 1 },
-    "maximumObservationAgeMs": { "type": "number", "minimum": 0 },
-    "maximumCheckUseGapMs": { "type": "number", "minimum": 0 },
-    "maximumRevalidationAgeMs": { "type": "number", "minimum": 0 },
-    "minimumAuthority": { "type": "number", "minimum": 0, "maximum": 100 },
+    "policyVersion": { "const": "2.0" },
+    "planId": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "maximumObservationAgeMs": { "type": "integer", "minimum": 0 },
+    "maximumCheckUseGapMs": { "type": "integer", "minimum": 0 },
+    "maximumCommitStateAgeMs": { "type": "integer", "minimum": 0 },
+    "maximumRevalidationAgeMs": { "type": "integer", "minimum": 0 },
+    "minimumAuthority": { "type": "integer", "minimum": 0, "maximum": 100 },
     "requireConditionalForMutations": { "type": "boolean" },
     "requireRevalidationForIrreversible": { "type": "boolean" },
-    "maximumDependencyDepth": { "type": "number", "minimum": 0 }
+    "requireScopeBinding": { "type": "boolean" },
+    "maximumDependencyDepth": { "type": "integer", "minimum": 0 },
+    "maximumActions": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "maximumObservations": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "maximumDependencyEdges": { "type": "integer", "minimum": 0, "maximum": 10000 }
   }
 }

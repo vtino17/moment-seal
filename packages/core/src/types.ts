@@ -10,10 +10,13 @@ export interface ResourceObservation {
 }
 
 export interface CommitState {
+  id: string;
+  actionId: string;
   resourceId: string;
   currentVersion: string;
   capturedAt: string;
   exists: boolean;
+  scopeHash: string;
 }
 
 export interface PlannedAction {
@@ -24,16 +27,20 @@ export interface PlannedAction {
   observationId?: string;
   expectedVersion?: string;
   commitAt: string;
-  consistency: "none" | "if-match" | "transaction" | "lease";
+  consistency: "none" | "if-match" | "if-none-match" | "transaction" | "lease";
+  commitStateId?: string;
+  scopeHash: string;
   leaseScope?: string;
   revalidatedAt?: string;
+  revalidatedVersion?: string;
+  revalidatedScopeHash?: string;
   irreversible: boolean;
   mutationHash: string;
   dependsOnActionIds: string[];
 }
 
 export interface AgentPlan {
-  planVersion: "1.0";
+  planVersion: "2.0";
   planId: string;
   observations: ResourceObservation[];
   commitStates: CommitState[];
@@ -41,19 +48,66 @@ export interface AgentPlan {
 }
 
 export interface MomentPolicy {
-  policyVersion: "1.0";
+  policyVersion: "2.0";
   planId: string;
   maximumObservationAgeMs: number;
   maximumCheckUseGapMs: number;
+  maximumCommitStateAgeMs: number;
   maximumRevalidationAgeMs: number;
   minimumAuthority: number;
   requireConditionalForMutations: boolean;
   requireRevalidationForIrreversible: boolean;
+  requireScopeBinding: boolean;
   maximumDependencyDepth: number;
+  maximumActions: number;
+  maximumObservations: number;
+  maximumDependencyEdges: number;
 }
 
+export type MomentFindingCode =
+  | "action-dependency-cycle"
+  | "action-limit-exceeded"
+  | "check-use-gap-exceeded"
+  | "commit-before-observation"
+  | "commit-state-action-mismatch"
+  | "commit-state-age-exceeded"
+  | "commit-state-from-future"
+  | "commit-state-missing"
+  | "commit-state-resource-mismatch"
+  | "competing-plan-writes"
+  | "conditional-mutation-missing"
+  | "create-guard-invalid"
+  | "dependency-edge-limit-exceeded"
+  | "dependency-depth-exceeded"
+  | "dependency-order-invalid"
+  | "expected-version-missing"
+  | "expected-version-observation-mismatch"
+  | "if-match-would-fail"
+  | "internally-invalidated-observation"
+  | "irreversible-revalidation-missing"
+  | "irreversible-revalidation-stale"
+  | "lease-scope-mismatch"
+  | "lease-scope-missing"
+  | "mutation-observation-missing"
+  | "observation-authority-low"
+  | "observation-expired"
+  | "observation-limit-exceeded"
+  | "observation-missing"
+  | "observation-resource-mismatch"
+  | "orphan-action-dependency"
+  | "orphan-commit-state"
+  | "resource-already-exists"
+  | "resource-missing-at-commit"
+  | "revalidation-scope-mismatch"
+  | "revalidation-version-mismatch"
+  | "scope-commit-state-mismatch"
+  | "scope-observation-mismatch"
+  | "state-version-drift"
+  | "unexpected-version-guard"
+  | "unbound-commit-state";
+
 export interface MomentFinding {
-  code: string;
+  code: MomentFindingCode;
   severity: "warning" | "blocked";
   message: string;
   actionId?: string;
@@ -72,6 +126,8 @@ export interface ActionDecision {
 
 export interface MomentCompilation {
   planId: string;
+  planHash: string;
+  policyHash: string;
   status: "clean" | "review" | "blocked";
   score: number;
   compiledAt: string;
@@ -79,6 +135,8 @@ export interface MomentCompilation {
   metrics: {
     conditionalCoverage: number;
     freshObservationCoverage: number;
+    freshCommitStateCoverage: number;
+    scopeBindingCoverage: number;
     driftedResources: number;
     maximumCheckUseGapMs: number;
     maximumDependencyDepth: number;
@@ -98,7 +156,7 @@ export interface MomentCompilation {
 }
 
 export interface MomentReceipt {
-  receiptVersion: "1.0";
+  receiptVersion: "2.0";
   planId: string;
   planHash: string;
   policyHash: string;
@@ -111,6 +169,6 @@ export interface MomentReceipt {
 
 export interface ReceiptVerification {
   valid: boolean;
-  checks: Record<"receiptHash" | "planHash" | "policyHash" | "compilationHash", boolean>;
+  checks: Record<"receiptHash" | "planHash" | "policyHash" | "compilationHash" | "committedActions" | "timeline", boolean>;
   errors: string[];
 }
