@@ -8,9 +8,9 @@ MomentSeal compiles the entire plan before execution. It binds observations to r
 
 > Experimental safety tooling. MomentSeal is a deterministic preflight compiler, not a transaction coordinator or an authorization system.
 
-## Hardened v0.2 model
+## Production-candidate v0.3
 
-The v0.2 contract intentionally breaks the initial prototype format. Every action now binds its own commit-state snapshot and authority scope. Compilation output embeds hashes of the exact plan and policy, receipts reject cross-plan compilation laundering, canonical JSON fails closed on unsupported values, and policy budgets bound graph work. See the complete [hardening review](docs/HARDENING.md).
+The v0.3 line adds Ed25519 signed receipts, trusted-key verification, enforceable HTTP and PostgreSQL concurrency adapters, typed errors, property-based tests, a 5,000-action performance gate, operational guidance, release SBOMs, and provenance attestations. The v0.2 contract hardening remains in force. See [production readiness](docs/PRODUCTION-READINESS.md) and the complete [hardening review](docs/HARDENING.md).
 
 ## What it catches
 
@@ -70,6 +70,9 @@ moment-seal timeline <plan.json> --policy <policy.json> --resource <id>
 moment-seal graph <plan.json> --policy <policy.json> [--output graph.dot]
 moment-seal receipt <plan.json> --policy <policy.json> --output <receipt.json>
 moment-seal verify <receipt.json> --plan <plan.json> --policy <policy.json>
+moment-seal keygen --private-output <private.pem> --public-output <public.pem>
+moment-seal sign <receipt.json> --private-key <private.pem> --plan <plan.json> --policy <policy.json> --output <signed.json>
+moment-seal verify-signed <signed.json> --public-key <public.pem> --plan <plan.json> --policy <policy.json>
 moment-seal demo [safe|racy] [--json]
 moment-seal init [directory]
 ```
@@ -112,7 +115,25 @@ pnpm moment verify /tmp/moment-receipt.json \
   --policy examples/safe-policy.json
 ```
 
-Receipts bind the plan, policy, self-verified compilation, timestamp, and exact committed action IDs. Issuance fails unless the compilation is clean and cryptographically bound to the supplied inputs. Verification also checks action semantics and timeline order. Receipts detect later mutation; they are not digital signatures. Sign the receipt with your existing provenance system when producer identity matters.
+Receipts bind the plan, policy, self-verified compilation, timestamp, and exact committed action IDs. Issuance fails unless the compilation is clean and cryptographically bound to the supplied inputs. Verification also checks action semantics and timeline order.
+
+To bind producer identity, generate an encrypted Ed25519 signing key and sign only after independent receipt verification:
+
+```bash
+export MOMENTSEAL_KEY_PASSPHRASE='retrieve-this-from-your-secret-manager'
+pnpm moment keygen --private-output private.pem --public-output public.pem
+pnpm moment sign /tmp/moment-receipt.json --private-key private.pem \
+  --plan examples/safe-plan.json --policy examples/safe-policy.json \
+  --output /tmp/moment-signed-receipt.json
+pnpm moment verify-signed /tmp/moment-signed-receipt.json --public-key public.pem \
+  --plan examples/safe-plan.json --policy examples/safe-policy.json
+```
+
+Verification trusts the separately supplied public key, never key material inside the envelope. Read [Signing-key management](docs/KEY-MANAGEMENT.md).
+
+## Runtime adapters
+
+`@momentseal/node` provides `guardedFetch`, HTTP observation/commit-state capture, and parameterized PostgreSQL row-version updates. These helpers enforce the compiled optimistic-concurrency boundary at the actual mutation point. See [Adapter integration](docs/ADAPTERS.md) and [Operations](docs/OPERATIONS.md).
 
 ## Fail-closed operation
 
@@ -133,6 +154,7 @@ MomentSeal generalizes those ideas across a multi-action agent plan: not only â€
 
 ```text
 packages/core   deterministic compiler, validation, hashing, receipts
+packages/node   Ed25519 signing and HTTP/PostgreSQL enforcement adapters
 packages/cli    automation-friendly command line interface
 apps/studio     interactive temporal trace
 examples        clean and intentionally racy plans
@@ -146,4 +168,4 @@ MomentSeal is an original experimental implementation of a snapshot-to-commit co
 
 ## Contributing and security
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). Licensed under [MIT](LICENSE).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). A production deployment still requires independent review and real-backend testing; the exact exit criteria are in [Production readiness](docs/PRODUCTION-READINESS.md). Licensed under [MIT](LICENSE).

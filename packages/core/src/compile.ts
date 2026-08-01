@@ -1,4 +1,5 @@
 import { hashValue } from "./canonical.js";
+import { asMomentSealError, MomentSealError } from "./errors.js";
 import type { ActionDecision, MomentCompilation, MomentFinding, MomentFindingCode, PlannedAction } from "./types.js";
 import { assertPlan, assertPolicy } from "./validation.js";
 
@@ -22,12 +23,20 @@ export async function compileMoments(input: {
   policy: unknown;
   compiledAt?: Date;
 }): Promise<MomentCompilation> {
-  assertPlan(input.plan);
-  assertPolicy(input.policy);
+  try {
+    assertPlan(input.plan);
+  } catch (error) {
+    throw asMomentSealError("INVALID_PLAN", error);
+  }
+  try {
+    assertPolicy(input.policy);
+  } catch (error) {
+    throw asMomentSealError("INVALID_POLICY", error);
+  }
   const { plan, policy } = input;
-  if (plan.planId !== policy.planId) throw new Error("Plan and policy target different plan ids.");
+  if (plan.planId !== policy.planId) throw new MomentSealError("COMPILATION_INPUT_MISMATCH", "Plan and policy target different plan ids.");
   const compiledAt = input.compiledAt ?? new Date();
-  if (!Number.isFinite(compiledAt.getTime())) throw new Error("Compilation timestamp is invalid.");
+  if (!Number.isFinite(compiledAt.getTime())) throw new MomentSealError("COMPILATION_TIMESTAMP_INVALID", "Compilation timestamp is invalid.");
 
   const [planHash, policyHash] = await Promise.all([hashValue(plan), hashValue(policy)]);
   const observations = new Map(plan.observations.map((item) => [item.id, item]));
@@ -91,6 +100,7 @@ export async function compileMoments(input: {
   }
 
   const decisions: ActionDecision[] = [];
+  const priorMutationsByResource = new Map<string, PlannedAction[]>();
   for (const action of [...plan.actions].sort((a, b) => a.sequence - b.sequence || a.id.localeCompare(b.id))) {
     const findings = [...(findingsByAction.get(action.id) ?? [])];
     const observation = action.observationId ? observations.get(action.observationId) : undefined;
@@ -148,11 +158,12 @@ export async function compileMoments(input: {
       if (action.revalidatedScopeHash && action.revalidatedScopeHash !== action.scopeHash) findings.push(finding("revalidation-scope-mismatch", "Revalidated scope differs from the action authority scope.", { actionId: action.id, resourceId: action.resourceId }));
     }
 
-    const earlierMutations = plan.actions.filter((candidate) => candidate.sequence < action.sequence && candidate.resourceId === action.resourceId && mutationKinds.has(candidate.kind));
+    const earlierMutations = priorMutationsByResource.get(action.resourceId) ?? [];
     if (observation && earlierMutations.length) {
       const latestPriorCommit = Math.max(...earlierMutations.map((item) => Date.parse(item.commitAt)));
       if (Date.parse(observation.observedAt) <= latestPriorCommit || !state || Date.parse(state.capturedAt) <= latestPriorCommit) findings.push(finding("internally-invalidated-observation", "An earlier action mutates this resource; later evidence and commit state must be captured after that mutation.", { actionId: action.id, observationId: observation.id, resourceId: action.resourceId, relatedIds: earlierMutations.map((item) => item.id) }));
     }
+    if (mutation) priorMutationsByResource.set(action.resourceId, [...earlierMutations, action]);
 
     const actionDepth = (indegree.get(action.id) ?? 0) > 0 ? null : (depths.get(action.id) ?? 0);
     if (actionDepth !== null && actionDepth > policy.maximumDependencyDepth) findings.push(finding("dependency-depth-exceeded", `Dependency depth ${actionDepth} exceeds ${policy.maximumDependencyDepth}.`, { actionId: action.id, resourceId: action.resourceId }));

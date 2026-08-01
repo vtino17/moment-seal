@@ -1,5 +1,6 @@
 import { hashValue } from "./canonical.js";
 import { compileMoments } from "./compile.js";
+import { MomentSealError } from "./errors.js";
 import type { AgentPlan, MomentCompilation, MomentPolicy, MomentReceipt, ReceiptVerification } from "./types.js";
 
 const compilationBody = (compilation: MomentCompilation): Omit<MomentCompilation, "compilationHash"> => {
@@ -42,17 +43,17 @@ export async function issueReceipt(input: {
   issuedAt?: Date;
 }): Promise<MomentReceipt> {
   const { plan, policy, compilation } = input;
-  if (compilation.status !== "clean") throw new Error("Only clean compilations can receive a receipt.");
+  if (compilation.status !== "clean") throw new MomentSealError("RECEIPT_NOT_CLEAN", "Only clean compilations can receive a receipt.");
   const trustedCompilation = await compileMoments({ plan, policy, compiledAt: new Date(compilation.compiledAt) });
   const [planHash, policyHash, compilationHash] = await Promise.all([
     hashValue(plan),
     hashValue(policy),
     hashValue(compilationBody(compilation)),
   ]);
-  if (compilation.planId !== plan.planId || policy.planId !== plan.planId) throw new Error("Compilation, plan, and policy identifiers do not match.");
-  if (compilation.planHash !== planHash || compilation.policyHash !== policyHash || compilation.compilationHash !== compilationHash || compilation.compilationHash !== trustedCompilation.compilationHash) throw new Error("Compilation is not bound to the supplied plan and policy.");
+  if (compilation.planId !== plan.planId || policy.planId !== plan.planId) throw new MomentSealError("RECEIPT_COMPILATION_MISMATCH", "Compilation, plan, and policy identifiers do not match.");
+  if (compilation.planHash !== planHash || compilation.policyHash !== policyHash || compilation.compilationHash !== compilationHash || compilation.compilationHash !== trustedCompilation.compilationHash) throw new MomentSealError("RECEIPT_COMPILATION_MISMATCH", "Compilation is not bound to the supplied plan and policy.");
   const issuedAt = input.issuedAt ?? new Date();
-  if (!Number.isFinite(issuedAt.getTime()) || issuedAt.getTime() < Date.parse(compilation.compiledAt)) throw new Error("Receipt issuance time must be valid and cannot predate compilation.");
+  if (!Number.isFinite(issuedAt.getTime()) || issuedAt.getTime() < Date.parse(compilation.compiledAt)) throw new MomentSealError("RECEIPT_TIMELINE_INVALID", "Receipt issuance time must be valid and cannot predate compilation.");
   const body = {
     receiptVersion: "2.0" as const,
     planId: plan.planId,

@@ -11,7 +11,14 @@ import {
   type AgentPlan,
   type MomentCompilation,
   type MomentPolicy,
+  type MomentReceipt,
 } from "@momentseal/core";
+import {
+  generateSigningKeyPair,
+  signReceipt,
+  verifySignedReceipt,
+  type SignedReceiptEnvelope,
+} from "@momentseal/node";
 import { mkdir, open, readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { formatCompilation, formatDot } from "./format.js";
@@ -39,11 +46,19 @@ const readJson = async <T>(file: string): Promise<T> => {
     throw new Error(`Cannot parse JSON from ${target}: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
+const readText = async (file: string): Promise<string> => {
+  const target = resolve(file);
+  const metadata = await stat(target);
+  if (!metadata.isFile()) throw new Error(`Input is not a regular file: ${target}`);
+  if (metadata.size > MAX_INPUT_BYTES) throw new Error(`Input exceeds the ${MAX_INPUT_BYTES}-byte limit: ${target}`);
+  return readFile(target, "utf8");
+};
 const saveText = async (file: string, content: string, mode = 0o644) => {
   const target = resolve(file);
   await mkdir(dirname(target), { recursive: true });
   const handle = await open(target, has("--force") ? "w" : "wx", mode);
   try {
+    await handle.chmod(mode);
     await handle.writeFile(`${content}\n`, "utf8");
     await handle.sync();
   } finally {
@@ -70,10 +85,15 @@ Usage:
   moment-seal graph <plan.json> --policy <policy.json> [--output graph.dot] [--force]
   moment-seal receipt <plan.json> --policy <policy.json> --output <receipt.json> [--force]
   moment-seal verify <receipt.json> --plan <plan.json> --policy <policy.json>
+  moment-seal keygen --private-output <private.pem> --public-output <public.pem> [--force]
+  moment-seal sign <receipt.json> --private-key <private.pem> --plan <plan.json> --policy <policy.json> --output <signed.json> [--force]
+  moment-seal verify-signed <signed.json> --public-key <public.pem> --plan <plan.json> --policy <policy.json>
   moment-seal demo [safe|racy] [--json]
   moment-seal init [directory] [--force]
 
-Inputs are limited to 1 MiB. Existing output files are never replaced unless --force is explicit.`;
+Inputs are limited to 1 MiB. Existing output files are never replaced unless --force is explicit.
+Key generation encrypts PKCS#8 private keys with MOMENTSEAL_KEY_PASSPHRASE (minimum 16 characters).
+Use --insecure-unencrypted only for disposable local-development keys.`;
 
 async function main(): Promise<void> {
   if (command === "help" || has("--help") || has("-h")) return console.log(help);
@@ -108,6 +128,20 @@ async function main(): Promise<void> {
     console.log(`Created starter plans in ${directory}`);
     return;
   }
+  if (command === "keygen") {
+    const privateOutput = flag("--private-output");
+    const publicOutput = flag("--public-output");
+    if (!privateOutput || !publicOutput) throw new Error("Provide --private-output and --public-output.");
+    if (resolve(privateOutput) === resolve(publicOutput)) throw new Error("Private and public key outputs must be different files.");
+    const insecure = has("--insecure-unencrypted");
+    const passphrase = process.env.MOMENTSEAL_KEY_PASSPHRASE;
+    if (!insecure && (!passphrase || passphrase.length < 16)) throw new Error("Set MOMENTSEAL_KEY_PASSPHRASE to at least 16 characters, or explicitly use --insecure-unencrypted for a disposable development key.");
+    const keys = generateSigningKeyPair(insecure ? undefined : passphrase);
+    await saveText(privateOutput, keys.privateKey.trimEnd(), 0o600);
+    await saveText(publicOutput, keys.publicKey.trimEnd(), 0o644);
+    console.log(JSON.stringify({ keyId: keys.keyId, privateKey: resolve(privateOutput), publicKey: resolve(publicOutput), encrypted: !insecure }, null, 2));
+    return;
+  }
   if (command === "verify") {
     const planFile = flag("--plan");
     const policyFile = flag("--policy");
@@ -127,6 +161,44 @@ async function main(): Promise<void> {
     process.exitCode = result.valid ? 0 : 4;
     return;
   }
+  if (command === "sign") {
+    const receiptFile = args[1];
+    const privateKeyFile = flag("--private-key");
+    const planFile = flag("--plan");
+    const policyFile = flag("--policy");
+    const output = flag("--output");
+    if (!receiptFile || !privateKeyFile || !planFile || !policyFile || !output) throw new Error("Provide a receipt, --private-key, --plan, --policy, and --output.");
+    const receipt = await readJson<MomentReceipt>(receiptFile);
+    const plan = await readJson<AgentPlan>(planFile);
+    const policy = await readJson<MomentPolicy>(policyFile);
+    const compiledAt = new Date(receipt.compiledAt);
+    if (!Number.isFinite(compiledAt.getTime())) throw new Error("Receipt compilation timestamp is invalid.");
+    const compilation = await compileMoments({ plan, policy, compiledAt });
+    const verification = await verifyReceipt({ receipt, plan, policy, compilation });
+    if (!verification.valid) {
+      console.log(JSON.stringify(verification, null, 2));
+      process.exitCode = 4;
+      return;
+    }
+    const privateKey = await readText(privateKeyFile);
+    const passphrase = process.env.MOMENTSEAL_KEY_PASSPHRASE;
+    const envelope = await signReceipt({ receipt, privateKey, ...(passphrase ? { passphrase } : {}) });
+    await saveText(output, JSON.stringify(envelope, null, 2), 0o600);
+    console.log(JSON.stringify({ keyId: envelope.signature.keyId, signedReceipt: resolve(output) }, null, 2));
+    return;
+  }
+  if (command === "verify-signed") {
+    const envelopeFile = args[1];
+    const publicKeyFile = flag("--public-key");
+    const planFile = flag("--plan");
+    const policyFile = flag("--policy");
+    if (!envelopeFile || !publicKeyFile || !planFile || !policyFile) throw new Error("Provide a signed receipt, --public-key, --plan, and --policy.");
+    const envelope = await readJson<SignedReceiptEnvelope>(envelopeFile);
+    const result = await verifySignedReceipt({ envelope, publicKey: await readText(publicKeyFile), plan: await readJson<AgentPlan>(planFile), policy: await readJson<MomentPolicy>(policyFile) });
+    console.log(JSON.stringify(result, null, 2));
+    process.exitCode = result.valid ? 0 : 4;
+    return;
+  }
   const source = await inputs();
   const result = await compileMoments(source);
   if (command === "compile") {
@@ -139,7 +211,7 @@ async function main(): Promise<void> {
     const action = source.plan.actions.find((item) => item.id === actionId);
     const decision = result.decisions.find((item) => item.actionId === actionId);
     if (!action || !decision) throw new Error("Unknown or missing --action.");
-    console.log(JSON.stringify({ action, observation: source.plan.observations.find((item) => item.id === action.observationId) ?? null, commitState: source.plan.commitStates.find((item) => item.resourceId === action.resourceId) ?? null, decision }, null, 2));
+    console.log(JSON.stringify({ action, observation: source.plan.observations.find((item) => item.id === action.observationId) ?? null, commitState: source.plan.commitStates.find((item) => item.id === action.commitStateId) ?? null, decision }, null, 2));
     statusExit(decision.status === "reject" ? "blocked" : decision.status === "review" ? "review" : "clean");
     return;
   }
@@ -148,7 +220,7 @@ async function main(): Promise<void> {
     if (!resourceId) throw new Error("Provide --resource.");
     const events = [
       ...source.plan.observations.filter((item) => item.resourceId === resourceId).map((item) => ({ at: item.observedAt, type: "observation", id: item.id, version: item.version })),
-      ...source.plan.commitStates.filter((item) => item.resourceId === resourceId).map((item) => ({ at: item.capturedAt, type: "commit-state", id: item.resourceId, version: item.currentVersion })),
+      ...source.plan.commitStates.filter((item) => item.resourceId === resourceId).map((item) => ({ at: item.capturedAt, type: "commit-state", id: item.id, version: item.currentVersion })),
       ...source.plan.actions.filter((item) => item.resourceId === resourceId).map((item) => ({ at: item.commitAt, type: "action", id: item.id, version: item.expectedVersion ?? null })),
     ].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
     console.log(JSON.stringify({ resourceId, events }, null, 2));

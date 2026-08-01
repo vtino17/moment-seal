@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vtino17/moment-seal/schemas/signed-receipt.schema.json",
+  "title": "MomentSeal signed receipt envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["envelopeVersion", "receipt", "signature"],
+  "properties": {
+    "envelopeVersion": { "const": "1.0" },
+    "receipt": { "$ref": "https://github.com/vtino17/moment-seal/schemas/receipt.schema.json" },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "keyId", "signedAt", "value"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "keyId": { "type": "string", "pattern": "^sha256:[A-Za-z0-9_-]{43}$" },
+        "signedAt": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+        "value": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+      }
+    }
+  }
+}

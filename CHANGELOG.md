@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 - 2026-08-02
+
+### Production hardening
+
+- Add domain-separated Ed25519 signed-receipt envelopes, encrypted PKCS#8 key generation, stable SPKI key identifiers, and trusted-key verification.
+- Add a Node runtime package with fail-closed HTTP ETag and PostgreSQL row-version enforcement adapters.
+- Add typed core and runtime errors plus CLI key generation, signing, and signed-receipt verification.
+- Fix CLI action explanation and timeline commit-state identity lookups.
+- Replace a quadratic prior-mutation scan with resource-indexed analysis.
+
+### Assurance and operations
+
+- Add property-based canonicalization, determinism, and cycle tests.
+- Add a 5,000-action CI performance budget and signed-receipt end-to-end tamper tests.
+- Add production operations, adapter, key-management, and readiness documentation.
+- Add CycloneDX SBOM generation, release checksums, and GitHub/Sigstore provenance attestations.
+
 ## 0.2.0 - 2026-08-01
 
 ### Security and correctness
