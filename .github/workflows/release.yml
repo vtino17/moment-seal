@@ -32,9 +32,9 @@ jobs:
       - run: pnpm check
       - name: Package release bundle
         run: |
-          mkdir -p release
-          tar -czf "release/momentseal-${GITHUB_REF_NAME}.tar.gz" packages/core/dist packages/node/dist packages/cli/dist apps/studio/dist schemas README.md LICENSE
-          sha256sum "release/momentseal-${GITHUB_REF_NAME}.tar.gz" > "release/momentseal-${GITHUB_REF_NAME}.sha256"
+          SOURCE_DATE_EPOCH=$(git show -s --format=%ct "$GITHUB_SHA")
+          export SOURCE_DATE_EPOCH
+          bash scripts/package-release.sh "$GITHUB_REF_NAME" release
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
