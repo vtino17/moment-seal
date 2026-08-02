@@ -39,8 +39,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      MOMENTSEAL_INTEGRATION_PROVISION: "true"
       MOMENTSEAL_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/momentseal
       MOMENTSEAL_VAULT_ADDR: http://127.0.0.1:8200
+      MOMENTSEAL_VAULT_ALLOW_INSECURE_DEVELOPMENT: "true"
       MOMENTSEAL_VAULT_TOKEN: momentseal-ci-only-root-token
     services:
       postgres:
