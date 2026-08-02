@@ -8,9 +8,9 @@ const token = process.env.MOMENTSEAL_VAULT_TOKEN;
 const enabled = Boolean(address && token);
 const provision = process.env.MOMENTSEAL_INTEGRATION_PROVISION === "true";
 const keyName = process.env.MOMENTSEAL_VAULT_KEY_NAME ?? "momentseal-integration";
-const mount = process.env.MOMENTSEAL_VAULT_MOUNT ?? "transit";
+const mount = process.env.MOMENTSEAL_VAULT_MOUNT || "transit";
 const configuredKeyVersion = process.env.MOMENTSEAL_VAULT_KEY_VERSION;
-const keyVersion = configuredKeyVersion === undefined ? undefined : Number(configuredKeyVersion);
+const keyVersion = configuredKeyVersion ? Number(configuredKeyVersion) : undefined;
 
 const vaultRequest = async (path: string, body: Record<string, unknown>): Promise<void> => {
   const response = await fetch(new URL(path, address!), {
