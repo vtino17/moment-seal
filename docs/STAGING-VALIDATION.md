@@ -42,4 +42,4 @@ Create a protected GitHub Environment named `staging`, require an independent re
 - variable `MOMENTSEAL_VAULT_KEY_NAME`;
 - optional variables `MOMENTSEAL_VAULT_MOUNT` and `MOMENTSEAL_VAULT_KEY_VERSION`.
 
-Run **Staging validation** manually, select the protected environment, approve the deployment, and attach the run URL to [the pilot record](PILOT-VALIDATION.md). GitHub-hosted runners must have a private network path or allow-listed route to both services; do not expose administrative endpoints publicly merely to satisfy this test.
+The manual dispatch becomes available after this workflow is merged onto the default branch. Run **Staging validation** before creating a production tag or GitHub Release, select the protected environment, approve the deployment, and attach the run URL to [the pilot record](PILOT-VALIDATION.md). GitHub-hosted runners must have a private network path or allow-listed route to both services; do not expose administrative endpoints publicly merely to satisfy this test.
