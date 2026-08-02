@@ -12,6 +12,7 @@
     "typecheck": "tsc -b packages/core/tsconfig.build.json packages/node/tsconfig.build.json packages/cli/tsconfig.build.json && tsc -p apps/studio/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "pnpm --filter @momentseal/core build && vitest run --config vitest.integration.config.ts",
+    "test:staging": "node scripts/assert-staging-environment.mjs && pnpm test:integration",
     "test:coverage": "vitest run --coverage",
     "security:deps": "pnpm audit --audit-level moderate",
     "benchmark": "pnpm --filter @momentseal/core build && node scripts/benchmark.mjs",

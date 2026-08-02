@@ -10,6 +10,8 @@ This record separates reproducible repository integration evidence from deployme
 | External Ed25519 signing | Ephemeral Vault 2.0.3 Transit service in development mode | Vault creates a non-exportable Ed25519 key, signs the exact receipt payload, and the exported public key verifies the envelope. | `PostgreSQL and Vault integration` GitHub check |
 | Unit failure paths | Mocked network and malformed metadata/signatures | Unsafe HTTP, path traversal, wrong key type/version, non-canonical signature, service status, and malformed configuration fail closed. | `Validate, test, and build` GitHub check |
 
+The protected manual procedure for exact staging services is documented in [staging validation](STAGING-VALIDATION.md).
+
 The CI images are pinned by immutable digest. Tokens and databases are disposable job-local fixtures. Vault development mode uses loopback HTTP and is explicitly enabled only by `allowInsecureDevelopment`; normal configuration requires HTTPS.
 
 ## Deployment evidence still required

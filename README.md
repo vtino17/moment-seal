@@ -170,4 +170,4 @@ MomentSeal is an original experimental implementation of a snapshot-to-commit co
 
 ## Contributing and security
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). Certification evidence and reviewer instructions are in the [SSDF mapping](docs/SSDF-MAPPING.md) and [independent audit package](docs/AUDIT-PACKAGE.md). A production deployment still requires independent review and real-backend testing; the exact exit criteria are in [Production readiness](docs/PRODUCTION-READINESS.md). Licensed under [MIT](LICENSE).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). Certification evidence and reviewer instructions are in the [SSDF mapping](docs/SSDF-MAPPING.md), [independent audit package](docs/AUDIT-PACKAGE.md), and [community review guide](docs/COMMUNITY-REVIEW.md). A production deployment still requires independent review and real-backend testing; the exact exit criteria are in [Production readiness](docs/PRODUCTION-READINESS.md). Licensed under [MIT](LICENSE).

@@ -24,6 +24,8 @@ Version 0.3 is certification-ready evidence, not a certification. It includes de
 
 Auditor candidates and selection questions are recorded in [the independent auditor shortlist](AUDITOR-SHORTLIST.md). OpenSSF Passing application evidence is prepared in [the application worksheet](OPENSSF-APPLICATION.md), but submission remains an authenticated maintainer attestation.
 
+Until a commercial auditor is funded, the project requests an [independent community security review](COMMUNITY-REVIEW.md). Community approval can authorize a merge under project governance, but it is not a certification and does not justify an “independently audited” claim without the complete audit deliverables.
+
 ## Certification decision
 
 The repository may describe a fixed release as “independently audited” only after the deliverables in [AUDIT-PACKAGE.md](AUDIT-PACKAGE.md) are complete and published. It may use “certified” only when a named external scheme and issuing organization grant that status for a defined scope and validity period. OpenSSF Best Practices is a separate project self-certification that the maintainer can apply for after verifying its live criteria.
