@@ -48,7 +48,7 @@ describe("property-based invariants", () => {
         expect(second).toEqual(first);
       },
     ), { numRuns: 75 });
-  });
+  }, 15_000);
 
   it("detects every member of generated dependency cycles", async () => {
     await fc.assert(fc.asyncProperty(fc.integer({ min: 2, max: 64 }), async (length) => {

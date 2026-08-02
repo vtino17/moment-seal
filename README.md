@@ -12,6 +12,10 @@ MomentSeal compiles the entire plan before execution. It binds observations to r
 
 The v0.3 line adds Ed25519 signed receipts, KMS/HSM signer integration, lifecycle-aware trusted-key verification, enforceable HTTP and PostgreSQL concurrency adapters, typed errors, property-based tests, a 5,000-action performance gate, reproducible release archives, SBOMs, provenance attestations, and an auditable NIST SSDF evidence map. The v0.2 contract hardening remains in force. See [production readiness](docs/PRODUCTION-READINESS.md) and the complete [hardening review](docs/HARDENING.md).
 
+## Independent reviewers wanted
+
+MomentSeal is seeking independent human security reviewers for the fixed v0.3 release candidate. Reviewers can claim a focused area, reproduce the assurance package, and coordinate findings through [the public review request](https://github.com/vtino17/moment-seal/issues/3). Suspected vulnerabilities must use [private vulnerability reporting](SECURITY.md), not a public issue. An approval supports project governance but is not a certification or guarantee.
+
 ## What it catches
 
 - stale, expired, low-authority, or wrong-resource observations;
