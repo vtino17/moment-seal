@@ -9,6 +9,10 @@ describe("canonical hashing and receipts", () => {
     expect(canonicalJson({ z: 1, a: { d: 2, b: 1 } })).toBe('{"a":{"b":1,"d":2},"z":1}');
   });
 
+  it("orders Unicode keys by code unit rather than the host locale", () => {
+    expect(canonicalJson({ "ä": 2, z: 1 })).toBe('{"z":1,"ä":2}');
+  });
+
   it("rejects undefined object values", () => {
     expect(() => canonicalJson({ a: 1, b: undefined })).toThrow("undefined");
   });

@@ -2,6 +2,7 @@ import { MomentSealError } from "./errors.js";
 
 const MAX_CANONICAL_DEPTH = 256;
 const fail = (message: string): never => { throw new MomentSealError("CANONICALIZATION_FAILED", message); };
+const compareCodeUnits = (left: string, right: string): number => left < right ? -1 : left > right ? 1 : 0;
 
 const normalize = (value: unknown, ancestors: Set<object>, depth: number): unknown => {
   if (depth > MAX_CANONICAL_DEPTH) fail(`Canonical JSON exceeds maximum depth ${MAX_CANONICAL_DEPTH}.`);
@@ -20,7 +21,7 @@ const normalize = (value: unknown, ancestors: Set<object>, depth: number): unkno
     }
     const prototype = Object.getPrototypeOf(value) as unknown;
     if (prototype !== Object.prototype && prototype !== null) fail("Canonical JSON accepts only plain objects and arrays.");
-    return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, child]) => {
+    return Object.fromEntries(Object.entries(value).sort(([a], [b]) => compareCodeUnits(a, b)).map(([key, child]) => {
       if (child === undefined) fail(`Canonical JSON field "${key}" is undefined.`);
       return [key, normalize(child, ancestors, depth + 1)];
     }));
