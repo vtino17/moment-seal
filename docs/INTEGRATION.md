@@ -5,7 +5,7 @@ MomentSeal belongs after planning and immediately before side effects.
 ```text
 agent plans
   → adapter records observations and versions
-  → runtime captures commit-time states
+  → runtime captures one commit-time state per action
   → MomentSeal compiles
   → runtime executes only clean actions with their declared guard
   → optional receipt is stored or signed
@@ -19,6 +19,7 @@ agent plans
 4. Generate `scopeHash` from the effective authorization and resource scope.
 5. Capture commit state at the transaction boundary.
 6. Implement the declared guard atomically.
+7. Hash the exact effective authority and resource scope consistently across all temporal layers.
 
 Never synthesize a version from mutable display content when the backend exposes a native concurrency token.
 
@@ -38,7 +39,7 @@ Map a strong ETag to `observation.version`, capture the current ETag as commit s
 If-Match: "<expectedVersion>"
 ```
 
-Treat HTTP `412 Precondition Failed` as a normal consistency rejection. Re-plan from a new observation; do not silently downgrade to an unconditional write.
+Treat HTTP `412 Precondition Failed` as a normal consistency rejection. For creation, use `If-None-Match: *` and a commit state with `exists: false`. Re-plan from new evidence after any precondition failure; never silently downgrade to an unconditional write.
 
 ## Databases
 
@@ -64,4 +65,4 @@ MomentSeal flags reuse of evidence that an earlier same-resource action has inva
 
 ## Receipt storage
 
-Receipts are content-addressed integrity records. Store them beside trace data, sign them with Sigstore/KMS when identity is required, and retain the source plan and policy for later verification.
+Receipts are content-addressed integrity records. Version 2 verifies that the compilation body hashes correctly, that its embedded plan and policy hashes match the supplied inputs, that committed action IDs match compiler decisions, and that issuance does not predate compilation. Store receipts beside trace data, sign them with Sigstore/KMS when identity is required, and retain the source plan and policy for later verification.

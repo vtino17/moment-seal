@@ -17,6 +17,10 @@ describe("compileMoments", () => {
     expect(result.summary).toEqual({ actions: 2, commit: 2, review: 0, reject: 0 });
     expect(result.metrics.conditionalCoverage).toBe(1);
     expect(result.metrics.freshObservationCoverage).toBe(1);
+    expect(result.metrics.freshCommitStateCoverage).toBe(1);
+    expect(result.metrics.scopeBindingCoverage).toBe(1);
+    expect(result.planHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.policyHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("blocks the racy sample", async () => {
@@ -110,7 +114,7 @@ describe("compileMoments", () => {
   it("enforces maximum dependency depth", async () => {
     const plan = copy(safePlan);
     plan.actions.push({
-      id: "publish-config", sequence: 3, kind: "read", resourceId: "repo/acme/config", commitAt: "2026-07-29T03:04:30.000Z", consistency: "none", irreversible: false, mutationHash: "sha256:publish", dependsOnActionIds: ["merge-config"],
+      id: "publish-config", sequence: 3, kind: "read", resourceId: "repo/acme/config", commitAt: "2026-07-29T03:04:30.000Z", consistency: "none", scopeHash: "scope:repo:acme:config", irreversible: false, mutationHash: "sha256:a5d47a4311d759db69e576d9eedd6a02fcfd9cd214129fa8492ee1e9c7343def", dependsOnActionIds: ["merge-config"],
     });
     const policy = { ...safePolicy, maximumDependencyDepth: 1 };
     const result = await compileMoments({ plan, policy });
@@ -120,9 +124,9 @@ describe("compileMoments", () => {
   it("does not require evidence for a create targeting an absent resource", async () => {
     const plan = copy(safePlan);
     plan.actions = [{
-      id: "create-record", sequence: 1, kind: "create", resourceId: "record/new", commitAt: "2026-07-29T03:03:00.000Z", consistency: "transaction", irreversible: false, mutationHash: "sha256:create", dependsOnActionIds: [],
+      id: "create-record", sequence: 1, kind: "create", resourceId: "record/new", commitStateId: "create-record-state", scopeHash: "scope:record:new", commitAt: "2026-07-29T03:03:00.000Z", consistency: "if-none-match", irreversible: false, mutationHash: "sha256:911de43c0e2667e8d678415214395fe781e4c846f2e827b9e7fc53dc1061f6e1", dependsOnActionIds: [],
     }];
-    plan.commitStates = [{ resourceId: "record/new", currentVersion: "none", capturedAt: "2026-07-29T03:02:00.000Z", exists: false }];
+    plan.commitStates = [{ id: "create-record-state", actionId: "create-record", resourceId: "record/new", currentVersion: "none", capturedAt: "2026-07-29T03:02:45.000Z", exists: false, scopeHash: "scope:record:new" }];
     const result = await compileMoments({ plan, policy: safePolicy });
     expect(result.status).toBe("clean");
     expect(result.metrics.freshObservationCoverage).toBe(1);
@@ -137,5 +141,72 @@ describe("compileMoments", () => {
 
   it("rejects mismatched plan and policy identifiers", async () => {
     await expect(compileMoments({ plan: safePlan, policy: racyPolicy })).rejects.toThrow("different plan ids");
+  });
+
+  it("rejects stale commit-time snapshots", async () => {
+    const plan = copy(safePlan);
+    plan.commitStates[0]!.capturedAt = "2026-07-29T03:01:00.000Z";
+    expect(await codes(plan)).toContain("commit-state-age-exceeded");
+  });
+
+  it("rejects an observation authority-scope mismatch", async () => {
+    const plan = copy(safePlan);
+    plan.actions[0]!.scopeHash = "scope:invoice:other";
+    expect(await codes(plan)).toContain("scope-observation-mismatch");
+  });
+
+  it("rejects a commit-state authority-scope mismatch", async () => {
+    const plan = copy(safePlan);
+    plan.commitStates[0]!.scopeHash = "scope:invoice:other";
+    expect(await codes(plan)).toContain("scope-commit-state-mismatch");
+  });
+
+  it("rejects mutations when the resource vanished", async () => {
+    const plan = copy(safePlan);
+    plan.commitStates[0]!.exists = false;
+    expect(await codes(plan)).toContain("resource-missing-at-commit");
+  });
+
+  it("binds each commit state to one action", async () => {
+    const plan = copy(safePlan);
+    plan.commitStates[0]!.actionId = "merge-config";
+    plan.commitStates[1]!.actionId = "settle-invoice";
+    expect(await codes(plan)).toContain("commit-state-action-mismatch");
+  });
+
+  it("rejects a commit state for another resource", async () => {
+    const plan = copy(safePlan);
+    plan.commitStates[0]!.resourceId = "invoice/other";
+    expect(await codes(plan)).toContain("commit-state-resource-mismatch");
+  });
+
+  it("rejects If-Match as a creation guard", async () => {
+    const plan = copy(safePlan);
+    plan.actions[0]!.kind = "create";
+    expect(await codes(plan)).toContain("create-guard-invalid");
+  });
+
+  it("enforces action, observation, and edge budgets", async () => {
+    const policy = { ...safePolicy, maximumActions: 1, maximumObservations: 1, maximumDependencyEdges: 0 };
+    const result = await compileMoments({ plan: safePlan, policy });
+    expect(result.findings.map((item) => item.code)).toEqual(expect.arrayContaining(["action-limit-exceeded", "observation-limit-exceeded", "dependency-edge-limit-exceeded"]));
+  });
+
+  it("rejects an invalid compilation timestamp", async () => {
+    await expect(compileMoments({ plan: safePlan, policy: safePolicy, compiledAt: new Date("invalid") })).rejects.toThrow("timestamp");
+  });
+
+  it("rejects commit states targeting nonexistent actions", async () => {
+    const plan = copy(safePlan);
+    plan.commitStates.push({ ...copy(plan.commitStates[0]!), id: "orphan-state", actionId: "phantom-action" });
+    expect(await codes(plan)).toContain("orphan-commit-state");
+  });
+
+  it("rejects commit states not selected by their action", async () => {
+    const plan = copy(safePlan);
+    plan.actions[0]!.commitStateId = "missing-state";
+    const resultCodes = await codes(plan);
+    expect(resultCodes).toContain("unbound-commit-state");
+    expect(resultCodes).toContain("commit-state-missing");
   });
 });

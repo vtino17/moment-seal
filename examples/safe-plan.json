@@ -1,5 +1,5 @@
 {
-  "planVersion": "1.0",
+  "planVersion": "2.0",
   "planId": "finance-agent-plan",
   "observations": [
     {
@@ -25,16 +25,22 @@
   ],
   "commitStates": [
     {
+      "id": "invoice-at-commit",
+      "actionId": "settle-invoice",
       "resourceId": "invoice/204",
       "currentVersion": "v7",
-      "capturedAt": "2026-07-29T03:02:00.000Z",
-      "exists": true
+      "capturedAt": "2026-07-29T03:02:45.000Z",
+      "exists": true,
+      "scopeHash": "scope:invoice:204"
     },
     {
+      "id": "repo-at-commit",
+      "actionId": "merge-config",
       "resourceId": "repo/acme/config",
       "currentVersion": "41",
-      "capturedAt": "2026-07-29T03:02:00.000Z",
-      "exists": true
+      "capturedAt": "2026-07-29T03:03:45.000Z",
+      "exists": true,
+      "scopeHash": "scope:repo:acme:config"
     }
   ],
   "actions": [
@@ -45,11 +51,15 @@
       "resourceId": "invoice/204",
       "observationId": "invoice-v7",
       "expectedVersion": "v7",
+      "commitStateId": "invoice-at-commit",
+      "scopeHash": "scope:invoice:204",
       "commitAt": "2026-07-29T03:03:00.000Z",
       "consistency": "if-match",
-      "revalidatedAt": "2026-07-29T03:02:30.000Z",
+      "revalidatedAt": "2026-07-29T03:02:50.000Z",
+      "revalidatedVersion": "v7",
+      "revalidatedScopeHash": "scope:invoice:204",
       "irreversible": true,
-      "mutationHash": "sha256:settle-invoice",
+      "mutationHash": "sha256:a519bf6b107719f37fd00e45b92119cca8bc7cfc017eaa60c482553f0875cdd0",
       "dependsOnActionIds": []
     },
     {
@@ -59,10 +69,12 @@
       "resourceId": "repo/acme/config",
       "observationId": "repo-v41",
       "expectedVersion": "41",
+      "commitStateId": "repo-at-commit",
+      "scopeHash": "scope:repo:acme:config",
       "commitAt": "2026-07-29T03:04:00.000Z",
       "consistency": "transaction",
       "irreversible": false,
-      "mutationHash": "sha256:merge-config",
+      "mutationHash": "sha256:3a85fe0a15338a9827d2465f4ad0f5bd73bdb03947b2c89734e1fc2828caa775",
       "dependsOnActionIds": [
         "settle-invoice"
       ]

@@ -1,0 +1,39 @@
+name: Independent security review
+description: Volunteer to review a fixed MomentSeal release-candidate commit
+title: "[Security review]: "
+labels: ["help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reviewing MomentSeal. Do not report suspected vulnerabilities here; use GitHub private vulnerability reporting. Read `docs/COMMUNITY-REVIEW.md` and `docs/AUDIT-PACKAGE.md` first.
+  - type: input
+    id: commit
+    attributes:
+      label: Exact commit SHA
+      description: Review a fixed full SHA, not a moving branch.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Intended review scope
+      description: List the claims, packages, adapters, or supply-chain controls you plan to inspect.
+    validations:
+      required: true
+  - type: textarea
+    id: independence
+    attributes:
+      label: Independence and conflicts
+      description: Describe prior relationships with the maintainer or project and any relevant conflicts.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I will use private vulnerability reporting for suspected vulnerabilities.
+          required: true
+        - label: I understand that an approval does not certify or guarantee the software.
+          required: true

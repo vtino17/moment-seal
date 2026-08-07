@@ -21,7 +21,7 @@ function metric(label: string, value: string, tone = "") {
 function timeline(plan: AgentPlan, result: MomentCompilation) {
   const moments = [
     ...plan.observations.map((item) => ({ at: item.observedAt, type: "OBSERVE", title: item.id, detail: `${item.resourceId} · ${item.version}`, tone: "cyan" })),
-    ...plan.commitStates.map((item) => ({ at: item.capturedAt, type: "STATE", title: item.resourceId, detail: `commit version ${item.currentVersion}`, tone: "violet" })),
+    ...plan.commitStates.map((item) => ({ at: item.capturedAt, type: "STATE", title: item.id, detail: `${item.resourceId} · ${item.currentVersion}`, tone: "violet" })),
     ...plan.actions.map((item) => {
       const decision = result.decisions.find((candidate) => candidate.actionId === item.id);
       return { at: item.commitAt, type: "ACTION", title: item.id, detail: `${item.kind} · ${decision?.status ?? "unknown"}`, tone: decision?.status === "commit" ? "green" : "red" };
@@ -44,7 +44,7 @@ function inspector(plan: AgentPlan, result: MomentCompilation) {
   selectedAction = action.id;
   const decision = result.decisions.find((item) => item.actionId === action.id);
   const observation = plan.observations.find((item) => item.id === action.observationId);
-  const state = plan.commitStates.find((item) => item.resourceId === action.resourceId);
+  const state = plan.commitStates.find((item) => item.id === action.commitStateId);
   return `<aside class="inspector">
     <div class="eyebrow">ACTION INSPECTOR / ${String(action.sequence).padStart(2, "0")}</div>
     <h2>${escapeHtml(action.id)}</h2>
@@ -94,6 +94,8 @@ async function render() {
       </section>
       <section class="metrics">
         ${metric("FRESH EVIDENCE", percent(result.metrics.freshObservationCoverage), result.metrics.freshObservationCoverage === 1 ? "good" : "bad")}
+        ${metric("FRESH COMMIT STATE", percent(result.metrics.freshCommitStateCoverage), result.metrics.freshCommitStateCoverage === 1 ? "good" : "bad")}
+        ${metric("SCOPE BINDING", percent(result.metrics.scopeBindingCoverage), result.metrics.scopeBindingCoverage === 1 ? "good" : "bad")}
         ${metric("CONDITIONAL WRITES", percent(result.metrics.conditionalCoverage), result.metrics.conditionalCoverage === 1 ? "good" : "bad")}
         ${metric("VERSION DRIFTS", String(result.metrics.driftedResources), result.metrics.driftedResources ? "bad" : "good")}
         ${metric("MAX CHECK → USE", duration(result.metrics.maximumCheckUseGapMs), result.metrics.maximumCheckUseGapMs > policy.maximumCheckUseGapMs ? "bad" : "good")}

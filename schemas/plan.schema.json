@@ -6,60 +6,75 @@
   "additionalProperties": false,
   "required": ["planVersion", "planId", "observations", "commitStates", "actions"],
   "properties": {
-    "planVersion": { "const": "1.0" },
-    "planId": { "type": "string", "minLength": 1 },
+    "planVersion": { "const": "2.0" },
+    "planId": { "type": "string", "minLength": 1, "maxLength": 512 },
     "observations": {
       "type": "array",
+      "maxItems": 10000,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["id", "resourceId", "version", "observedAt", "expiresAt", "source", "authority", "scopeHash"],
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
-          "resourceId": { "type": "string", "minLength": 1 },
-          "version": { "type": "string" },
-          "observedAt": { "type": "string", "format": "date-time" },
-          "expiresAt": { "type": "string", "format": "date-time" },
-          "source": { "type": "string", "minLength": 1 },
+          "id": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "resourceId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "version": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "observedAt": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+          "expiresAt": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+          "source": { "type": "string", "minLength": 1, "maxLength": 512 },
           "authority": { "type": "number", "minimum": 0, "maximum": 100 },
-          "scopeHash": { "type": "string", "minLength": 1 }
+          "scopeHash": { "type": "string", "minLength": 1, "maxLength": 512 }
         }
       }
     },
     "commitStates": {
       "type": "array",
+      "maxItems": 10000,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["resourceId", "currentVersion", "capturedAt", "exists"],
+        "required": ["id", "actionId", "resourceId", "currentVersion", "capturedAt", "exists", "scopeHash"],
         "properties": {
-          "resourceId": { "type": "string", "minLength": 1 },
-          "currentVersion": { "type": "string" },
-          "capturedAt": { "type": "string", "format": "date-time" },
-          "exists": { "type": "boolean" }
+          "id": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "actionId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "resourceId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "currentVersion": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "capturedAt": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+          "exists": { "type": "boolean" },
+          "scopeHash": { "type": "string", "minLength": 1, "maxLength": 512 }
         }
       }
     },
     "actions": {
       "type": "array",
+      "maxItems": 10000,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "sequence", "kind", "resourceId", "commitAt", "consistency", "irreversible", "mutationHash", "dependsOnActionIds"],
+        "required": ["id", "sequence", "kind", "resourceId", "commitAt", "consistency", "scopeHash", "irreversible", "mutationHash", "dependsOnActionIds"],
+        "dependentRequired": {
+          "revalidatedAt": ["revalidatedVersion", "revalidatedScopeHash"],
+          "revalidatedVersion": ["revalidatedAt", "revalidatedScopeHash"],
+          "revalidatedScopeHash": ["revalidatedAt", "revalidatedVersion"]
+        },
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
+          "id": { "type": "string", "minLength": 1, "maxLength": 512 },
           "sequence": { "type": "integer", "minimum": 0 },
           "kind": { "enum": ["read", "create", "update", "delete", "external-effect"] },
-          "resourceId": { "type": "string", "minLength": 1 },
-          "observationId": { "type": "string", "minLength": 1 },
-          "expectedVersion": { "type": "string" },
-          "commitAt": { "type": "string", "format": "date-time" },
-          "consistency": { "enum": ["none", "if-match", "transaction", "lease"] },
-          "leaseScope": { "type": "string", "minLength": 1 },
-          "revalidatedAt": { "type": "string", "format": "date-time" },
+          "resourceId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "observationId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "expectedVersion": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "commitAt": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+          "consistency": { "enum": ["none", "if-match", "if-none-match", "transaction", "lease"] },
+          "commitStateId": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "scopeHash": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "leaseScope": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "revalidatedAt": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+          "revalidatedVersion": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "revalidatedScopeHash": { "type": "string", "minLength": 1, "maxLength": 512 },
           "irreversible": { "type": "boolean" },
-          "mutationHash": { "type": "string", "minLength": 1 },
-          "dependsOnActionIds": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+          "mutationHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "dependsOnActionIds": { "type": "array", "maxItems": 256, "items": { "type": "string", "minLength": 1, "maxLength": 512 }, "uniqueItems": true }
         }
       }
     }

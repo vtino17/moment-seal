@@ -3,7 +3,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/*.d.ts", "**/*.tsbuildinfo"] },
+  { ignores: ["**/coverage/**", "**/dist/**", "**/node_modules/**", "**/*.d.ts", "**/*.tsbuildinfo"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { languageOptions: { globals: { ...globals.node, ...globals.browser } }, rules: { "@typescript-eslint/consistent-type-imports": "error" } },

@@ -4,20 +4,98 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "23 3 * * 1"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   check:
+    name: Validate, test, and build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - run: corepack enable
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm --version
       - run: pnpm install --frozen-lockfile
+      - run: pnpm security:deps
       - run: pnpm check
+
+  integration:
+    name: PostgreSQL and Vault integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MOMENTSEAL_INTEGRATION_PROVISION: "true"
+      MOMENTSEAL_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/momentseal
+      MOMENTSEAL_VAULT_ADDR: http://127.0.0.1:8200
+      MOMENTSEAL_VAULT_ALLOW_INSECURE_DEVELOPMENT: "true"
+      MOMENTSEAL_VAULT_TOKEN: momentseal-ci-only-root-token
+    services:
+      postgres:
+        image: postgres@sha256:4f736ae292687621d4dbe0d499ffd024a36bd2ee7d8ca6f2ccd4c800f047b394 # 17-bookworm
+        env:
+          POSTGRES_DB: momentseal
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d momentseal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      vault:
+        image: hashicorp/vault@sha256:a296a888b118615dc01d5f1a6846e6d4a7277946caaed5b447008fff5fe06b54 # 2.0.3
+        env:
+          VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+          VAULT_DEV_ROOT_TOKEN_ID: momentseal-ci-only-root-token
+        ports:
+          - 8200:8200
+        options: --cap-add=IPC_LOCK
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/wait-for-http.mjs http://127.0.0.1:8200/v1/sys/health
+      - run: pnpm test:integration
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@bce182f857edf1feab116e9795a3393d21977282 # v4
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@bce182f857edf1feab116e9795a3393d21977282 # v4
+        with:
+          category: /language:javascript-typescript

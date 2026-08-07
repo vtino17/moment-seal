@@ -31,7 +31,7 @@ h1 span { color: #727972; }
 .toggle button span { color: var(--muted); margin-left: 10px; }
 .toggle button.active { background: #252b22; color: var(--acid); border-color: #596d3b; }
 .compiled { color: var(--muted); font: 10px DM Mono; }
-.metrics { display: grid; grid-template-columns: repeat(4,1fr); border-bottom: 1px solid var(--line); }
+.metrics { display: grid; grid-template-columns: repeat(6,1fr); border-bottom: 1px solid var(--line); }
 .metric { padding: 27px 24px; border-right: 1px solid var(--line); } .metric:last-child { border: 0; }
 .metric span { display: block; color: var(--muted); font: 9px DM Mono; letter-spacing: 1.2px; }
 .metric strong { display: block; margin-top: 10px; font: 500 28px DM Mono; }
@@ -73,5 +73,5 @@ dl { margin: 30px 0; } dl div { display:grid; grid-template-columns: 110px 1fr; 
 .terminal span { color:var(--acid); } .terminal code { white-space:nowrap; color:#a9afa9; } .terminal b { margin-left:auto; color:var(--muted); white-space:nowrap; }
 footer { border-top:1px solid var(--line); padding:28px clamp(20px,4vw,64px); display:flex; justify-content:space-between; color:var(--muted); font:9px DM Mono; letter-spacing:1px; }
 footer p { margin:0; color:#d6dbd5; }
-@media (max-width: 900px) { .header-meta { display:none; } .github { margin-left:auto; } .hero { align-items:flex-start; padding:70px 0; } .seal { display:none; } .metrics { grid-template-columns:1fr 1fr; } .metric:nth-child(2) { border-right:0; } .workbench { grid-template-columns:1fr; } .actions { border-right:0; padding-right:0; } .inspector { padding-left:0; } .time-ruler { overflow-x:auto; } }
+@media (max-width: 900px) { .header-meta { display:none; } .github { margin-left:auto; } .hero { align-items:flex-start; padding:70px 0; } .seal { display:none; } .metrics { grid-template-columns:1fr 1fr; } .metric:nth-child(even) { border-right:0; } .workbench { grid-template-columns:1fr; } .actions { border-right:0; padding-right:0; } .inspector { padding-left:0; } .time-ruler { overflow-x:auto; } }
 @media (max-width: 600px) { h1 { letter-spacing:-3px; } .controls { align-items:flex-start; gap:16px; flex-direction:column; } .compiled, .legend { display:none; } .metrics { grid-template-columns:1fr; } .metric { border-right:0; border-bottom:1px solid var(--line); } .action-row { grid-template-columns:35px 1fr 70px; } .guard { display:none; } footer span { display:none; } footer { justify-content:center; } }

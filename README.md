@@ -8,15 +8,26 @@ MomentSeal compiles the entire plan before execution. It binds observations to r
 
 > Experimental safety tooling. MomentSeal is a deterministic preflight compiler, not a transaction coordinator or an authorization system.
 
+## Production-candidate v0.3
+
+The v0.3 line adds Ed25519 signed receipts, KMS/HSM signer integration, lifecycle-aware trusted-key verification, enforceable HTTP and PostgreSQL concurrency adapters, typed errors, property-based tests, a 5,000-action performance gate, reproducible release archives, SBOMs, provenance attestations, and an auditable NIST SSDF evidence map. The v0.2 contract hardening remains in force. See [production readiness](docs/PRODUCTION-READINESS.md) and the complete [hardening review](docs/HARDENING.md).
+
+## Independent reviewers wanted
+
+MomentSeal is seeking independent human security reviewers for the fixed v0.3 release candidate. Reviewers can claim a focused area, reproduce the assurance package, and coordinate findings through [the public review request](https://github.com/vtino17/moment-seal/issues/3). Suspected vulnerabilities must use [private vulnerability reporting](SECURITY.md), not a public issue. An approval supports project governance but is not a certification or guarantee.
+
 ## What it catches
 
 - stale, expired, low-authority, or wrong-resource observations;
+- stale, missing, wrong-action, or wrong-resource commit snapshots;
+- authority-scope changes across observation, commit state, action, lease, and revalidation;
 - commit-time version drift and predicted `If-Match` failures;
 - blind writes, deletes, and external effects without a transaction, lease, or conditional write;
 - irreversible actions without recent revalidation;
 - evidence invalidated by an earlier action in the same plan;
 - competing writes to one version, missing commit snapshots, and create collisions;
 - orphan dependencies, invalid order, cycles, and excessive dependency depth.
+- oversized action, observation, and dependency-edge sets.
 
 ```mermaid
 flowchart LR
@@ -36,6 +47,8 @@ Requires Node.js 20+ and pnpm.
 corepack enable
 pnpm install
 pnpm check
+pnpm test:coverage
+pnpm security:deps
 
 pnpm moment demo safe
 pnpm moment demo racy
@@ -61,6 +74,9 @@ moment-seal timeline <plan.json> --policy <policy.json> --resource <id>
 moment-seal graph <plan.json> --policy <policy.json> [--output graph.dot]
 moment-seal receipt <plan.json> --policy <policy.json> --output <receipt.json>
 moment-seal verify <receipt.json> --plan <plan.json> --policy <policy.json>
+moment-seal keygen --private-output <private.pem> --public-output <public.pem>
+moment-seal sign <receipt.json> --private-key <private.pem> --plan <plan.json> --policy <policy.json> --output <signed.json>
+moment-seal verify-signed <signed.json> (--public-key <public.pem> | --trust-store <trust.json>) --plan <plan.json> --policy <policy.json>
 moment-seal demo [safe|racy] [--json]
 moment-seal init [directory]
 ```
@@ -72,10 +88,10 @@ Exit codes are stable: `0` clean, `2` blocked, `3` review, `4` invalid receipt, 
 A plan has three temporal layers:
 
 1. **Observation** — what the agent saw, including version, source, authority, scope, capture time, and expiry.
-2. **Commit state** — the resource version captured immediately before execution.
-3. **Action** — the intended mutation, expected version, commit time, concurrency mechanism, dependencies, and revalidation.
+2. **Commit state** — a per-action resource version and authorization scope captured immediately before execution.
+3. **Action** — the intended mutation, expected version, authority scope, commit-state binding, concurrency mechanism, dependencies, and versioned revalidation.
 
-The policy defines acceptable evidence age, check-to-use gap, authority, revalidation window, and graph depth. The compiler produces per-action decisions, aggregate metrics, a temporal graph, and a deterministic SHA-256 compilation hash.
+The policy defines acceptable evidence age, commit-state age, check-to-use gap, authority, revalidation window, graph depth, and resource budgets. The compiler produces per-action decisions, aggregate metrics, a temporal graph, input hashes, and a deterministic SHA-256 compilation hash.
 
 See [Plan format](docs/PLAN.md), [Policy reference](docs/POLICY.md), and [Runtime integration](docs/INTEGRATION.md).
 
@@ -103,7 +119,36 @@ pnpm moment verify /tmp/moment-receipt.json \
   --policy examples/safe-policy.json
 ```
 
-Receipts bind the plan, policy, compilation, timestamp, and committed action IDs. They detect later mutation; they are not digital signatures. Sign the receipt with your existing provenance system when producer identity matters.
+Receipts bind the plan, policy, self-verified compilation, timestamp, and exact committed action IDs. Issuance fails unless the compilation is clean and cryptographically bound to the supplied inputs. Verification also checks action semantics and timeline order.
+
+To bind producer identity, generate an encrypted Ed25519 signing key and sign only after independent receipt verification:
+
+```bash
+export MOMENTSEAL_KEY_PASSPHRASE='retrieve-this-from-your-secret-manager'
+pnpm moment keygen --private-output private.pem --public-output public.pem
+pnpm moment sign /tmp/moment-receipt.json --private-key private.pem \
+  --plan examples/safe-plan.json --policy examples/safe-policy.json \
+  --output /tmp/moment-signed-receipt.json
+pnpm moment verify-signed /tmp/moment-signed-receipt.json --public-key public.pem \
+  --plan examples/safe-plan.json --policy examples/safe-policy.json
+```
+
+Verification trusts the separately supplied public key, never key material inside the envelope. Read [Signing-key management](docs/KEY-MANAGEMENT.md).
+
+Production runtimes can implement the asynchronous `ReceiptSigner` interface with a non-exportable KMS/HSM key and verify rotated keys with `verifySignedReceiptWithTrustStore`. `loadVaultTransitSigner` provides a hardened HashiCorp Vault Transit implementation. Trust stores bind public-key identity, validity windows, and revocation timestamps.
+
+## Runtime adapters
+
+`@momentseal/node` provides `guardedFetch`, HTTP observation/commit-state capture, parameterized PostgreSQL row-version updates, and Vault Transit receipt signing. These helpers enforce the compiled optimistic-concurrency and key-custody boundaries at the actual mutation point. See [Adapter integration](docs/ADAPTERS.md), [pilot validation](docs/PILOT-VALIDATION.md), and [Operations](docs/OPERATIONS.md).
+
+## Fail-closed operation
+
+- JSON input is capped at 1 MiB by the CLI.
+- Canonical timestamps must use UTC with millisecond precision.
+- Mutation hashes must use `sha256:<64 lowercase hex characters>`.
+- Existing output files are preserved unless `--force` is explicit.
+- Canonical hashing rejects cycles, sparse arrays, non-finite numbers, class instances, and undefined values.
+- Dependency analysis is iterative and bounded, avoiding recursive graph exhaustion.
 
 ## Why this matters
 
@@ -115,11 +160,12 @@ MomentSeal generalizes those ideas across a multi-action agent plan: not only �
 
 ```text
 packages/core   deterministic compiler, validation, hashing, receipts
+packages/node   Ed25519 signing and HTTP/PostgreSQL enforcement adapters
 packages/cli    automation-friendly command line interface
 apps/studio     interactive temporal trace
 examples        clean and intentionally racy plans
 schemas         JSON Schema contracts
-docs            model, policy, integration, and threat boundaries
+docs            model, policy, hardening review, integration, and threat boundaries
 ```
 
 ## Project status and originality
@@ -128,4 +174,4 @@ MomentSeal is an original experimental implementation of a snapshot-to-commit co
 
 ## Contributing and security
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). Licensed under [MIT](LICENSE).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a new invariant. Report security issues through the process in [SECURITY.md](SECURITY.md). Certification evidence and reviewer instructions are in the [SSDF mapping](docs/SSDF-MAPPING.md), [independent audit package](docs/AUDIT-PACKAGE.md), and [community review guide](docs/COMMUNITY-REVIEW.md). A production deployment still requires independent review and real-backend testing; the exact exit criteria are in [Production readiness](docs/PRODUCTION-READINESS.md). Licensed under [MIT](LICENSE).
