@@ -71,9 +71,9 @@ Exit codes are stable: `0` clean, `2` blocked, `3` review, `4` invalid receipt, 
 
 A plan has three temporal layers:
 
-1. **Observation** — what the agent saw, including version, source, authority, scope, capture time, and expiry.
-2. **Commit state** — the resource version captured immediately before execution.
-3. **Action** — the intended mutation, expected version, commit time, concurrency mechanism, dependencies, and revalidation.
+1. **Observation** - what the agent saw, including version, source, authority, scope, capture time, and expiry.
+2. **Commit state** - the resource version captured immediately before execution.
+3. **Action** - the intended mutation, expected version, commit time, concurrency mechanism, dependencies, and revalidation.
 
 The policy defines acceptable evidence age, check-to-use gap, authority, revalidation window, and graph depth. The compiler produces per-action decisions, aggregate metrics, a temporal graph, and a deterministic SHA-256 compilation hash.
 
@@ -109,7 +109,7 @@ Receipts bind the plan, policy, compilation, timestamp, and committed action IDs
 
 Time-of-check to time-of-use is a recognized race-condition class ([MITRE CWE-367](https://cwe.mitre.org/data/definitions/367/)). HTTP `If-Match` exists specifically to prevent lost updates when state changes between retrieval and mutation ([RFC 9110, section 13.1.1](https://www.rfc-editor.org/rfc/rfc9110.html#name-if-match)). Recent research has also examined TOCTOU behavior in LLM agents ([arXiv:2508.17155](https://arxiv.org/abs/2508.17155)).
 
-MomentSeal generalizes those ideas across a multi-action agent plan: not only “did the version change?”, but also “did this plan invalidate its own evidence?”, “is an irreversible action being revalidated close enough to commit?”, and “does every mutation have an enforceable concurrency boundary?”
+MomentSeal generalizes those ideas across a multi-action agent plan: not only "did the version change?", but also "did this plan invalidate its own evidence?", "is an irreversible action being revalidated close enough to commit?", and "does every mutation have an enforceable concurrency boundary?"
 
 ## Repository layout
 
